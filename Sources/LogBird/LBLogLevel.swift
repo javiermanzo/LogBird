@@ -8,9 +8,9 @@
 import Foundation
 import OSLog
 
-public enum LBLogLevel: String, CaseIterable {
+public enum LBLogLevel: String, Codable, CaseIterable {
     case debug, info, warning, error, critical
-
+    
     var osLogType: OSLogType {
         switch self {
         case .debug: return .debug
@@ -20,8 +20,8 @@ public enum LBLogLevel: String, CaseIterable {
         case .critical: return .fault
         }
     }
-
-    var emoji: String {
+    
+    public var emoji: String {
         switch self {
         case .debug: return "🐞"
         case .info: return "ℹ️"
