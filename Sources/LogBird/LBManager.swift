@@ -10,40 +10,40 @@ import OSLog
 import Combine
 
 final class LBManager: @unchecked Sendable  {
-    
+
     private let logger: Logger
     private var identifier: String?
     private let dispatchQueue: DispatchQueue = DispatchQueue(label: "com.logbird.accessQueue")
-    
+
     private let source: LBSource
-    
+
     private var logs: [LBLog] = []
     private let logsSubject = CurrentValueSubject<[LBLog], Never>([])
     var logsPublisher: AnyPublisher<[LBLog], Never> {
         logsSubject.eraseToAnyPublisher()
     }
-    
-    private let dateFormatter: DateFormatter = {
+
+    static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS ZZZZ"
         formatter.timeZone = TimeZone.current
         formatter.locale = Locale.current
         return formatter
     }()
-    
+
     init(subsystem: String, category: String) {
         let source = LBSource(subsystem: subsystem, category: category)
         self.logger = Logger(subsystem: source.subsystem, category: source.category)
         self.source = source
     }
-    
+
     func setIdentifier(_ value: String?) {
         dispatchQueue.async { [weak self] in
             guard let self = self else { return }
             self.identifier = value
         }
     }
-    
+
     func log(_ message: String? = nil,
              additionalInfo: [String: Any]? = nil,
              error: Error? = nil,
@@ -51,37 +51,23 @@ final class LBManager: @unchecked Sendable  {
              file: String = #fileID,
              function: String = #function,
              line: Int = #line) {
-        
-        let logData = buildLogData(message: message,
-                                   additionalInfo: additionalInfo,
-                                   error: error,
-                                   level: level,
-                                   file: file,
-                                   function: function,
-                                   line: line)
-        
-        let logJSON = logToPrettyJSON(logData)
 
-        var log: String = "\(logData.level.emoji) LogBird: \n\(logJSON)"
-        
-        if let identifier {
-            log = "\(identifier) \(log)"
-        }
+        let log = buildLogData(message: message,
+                               additionalInfo: additionalInfo,
+                               error: error,
+                               level: level,
+                               file: file,
+                               function: function,
+                               line: line)
 
-        var stringIdentifier = ""
-                if let identifier {
-                    dispatchQueue.sync {
-                        stringIdentifier = identifier
-                    }
-                }
+        let logMessage = generateLogMessage(log)
 
-        logger.log(level: level.osLogType, "\(log)")
+        logger.log(level: level.osLogType, "\(logMessage)")
 
-        
-        self.logs.insert(logData, at: 0)
+        self.logs.insert(log, at: 0)
         self.logsSubject.send(self.logs)
     }
-    
+
     private func buildLogData(message: String? = nil,
                               additionalInfo: [String: Any]? = nil,
                               error: Error? = nil,
@@ -89,31 +75,29 @@ final class LBManager: @unchecked Sendable  {
                               file: String,
                               function: String,
                               line: Int) -> LBLog {
-        
+
         let errorData: LBError? = errorToLBError(error) ?? nil
-        
+
         let additionalInfoString = additionalInfo?.compactMapValues { "\($0)" }
-        
+
         let log = LBLog(
             level: level,
             message: message,
             additionalInfo: additionalInfoString,
             error: errorData,
-            file: file,
-            function: function,
-            line: line,
-            createdAt: dateFormatter.string(from: Date()),
+            createdAt: Date().timeIntervalSince1970,
+            location: LBLocation(file: file, function: function, line: line),
             source: LBSource(subsystem: source.subsystem, category: source.category)
         )
-        
+
         return log
     }
-    
+
     private func errorToLBError(_ error: Error?) -> LBError? {
         guard let error else { return nil }
         let nsError = error as NSError
         let userInfoString = nsError.userInfo.compactMapValues { "\($0)" }
-        
+
         return LBError(
             domain: nsError.domain,
             code: nsError.code,
@@ -121,27 +105,76 @@ final class LBManager: @unchecked Sendable  {
             userInfo: userInfoString
         )
     }
-    
-    private func logToPrettyJSON(_ log: LBLog) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
-        
-        do {
-            let jsonData = try encoder.encode(log)
-            return String(data: jsonData, encoding: .utf8) ?? ""
-        } catch {
-            print("Error encoding LBLog to JSON:", error)
-            return ""
+
+    private func generateLogMessage(_ log: LBLog) -> String {
+        var logMessage: String = ""
+        let spacing: String = "    "
+
+        // Header
+        var header: String = "\(log.level.emoji) \(log.level.rawValue.uppercased()) LogBird: \n"
+        if let identifier {
+            header = "\(identifier) \(header)"
         }
-    }
-    
-    private func errorToDictionary(_ error: Error) -> [String: Any] {
-        let nsError = error as NSError
-        return [
-            "domain": nsError.domain,
-            "code": nsError.code,
-            "localizedDescription": nsError.localizedDescription,
-            "userInfo": nsError.userInfo
-        ]
+
+        logMessage = "\(logMessage)\(header)"
+
+        // Created At
+        let createdAt: String = "Created at:\n\(spacing)\(LBManager.dateFormatter.string(from: Date(timeIntervalSince1970: log.createdAt)))\n"
+        logMessage = "\(logMessage)\(createdAt)"
+
+        // Source
+        let subsystem: String = "Subsystem: \(log.source.subsystem)\n"
+        let category: String = "Category: \(log.source.category)\n"
+        let source: String = "Source: \n\(spacing)\(subsystem)\(spacing)\(category)"
+        logMessage = "\(logMessage)\(source)"
+
+        // Message
+        if let message = log.message {
+            let info: String = "Message:\n\(spacing)\(message)\n"
+            logMessage = "\(logMessage)\(info)"
+        }
+
+        // Additional Info
+        if let additionalInfo = log.additionalInfo {
+            var info: String = "Additional Info:\n"
+            for key in additionalInfo.keys {
+                if let value = additionalInfo[key] {
+                    info = "\(info)\(spacing) \(key): \(value)\n"
+                }
+            }
+            logMessage = "\(logMessage)\(info)"
+        }
+
+        // Error
+        if let error = log.error {
+            let domain: String = "Domain: \(error.domain)\n"
+            let code: String = "Code: \(error.code)\n"
+            var userInfoString: String = ""
+
+            if let userInfo = error.userInfo {
+                userInfoString = "User Info:\n"
+                for key in userInfo.keys {
+                    if let value = userInfo[key] {
+                        userInfoString = "\(userInfoString)\(spacing)\(spacing)\(key): \(value)\n"
+                    }
+                }
+            }
+
+            var errorString: String = "Error:\n\(spacing)\(domain)\(spacing)\(code)"
+            if !userInfoString.isEmpty {
+                errorString = "\(errorString)\(spacing)\(userInfoString)"
+            }
+
+            logMessage = "\(logMessage)\(errorString)"
+        }
+        
+        // Location
+        let file: String = "File: \(log.location.file)\n"
+        let function: String = "Function: \(log.location.function)\n"
+        let line: String = "Line: \(log.location.line)\n"
+        let location: String = "Location:\n\(spacing)\(file)\(spacing)\(function)\(spacing)\(line)"
+        logMessage = "\(logMessage)\(location)"
+
+        return logMessage
     }
 }

@@ -13,10 +13,8 @@ public struct LBLog: Codable, Identifiable {
     public let message: String?
     public let additionalInfo: [String: String]?
     public let error: LBError?
-    public let file: String
-    public let function: String
-    public let line: Int
-    public let createdAt: String
+    public let createdAt: Double
+    public let location: LBLocation
     public let source: LBSource
 }
 
@@ -25,9 +23,30 @@ public struct LBSource: Codable {
     public let category: String
 }
 
+public struct LBLocation: Codable {
+    public let file: String
+    public let function: String
+    public let line: Int
+}
+
 public struct LBError: Codable {
     public let domain: String
     public let code: Int
     public let localizedDescription: String
     public let userInfo: [String: String]?
+}
+
+public extension LBLog {
+    func prettyJSON() -> String? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+
+        do {
+            let jsonData = try encoder.encode(self)
+            return String(data: jsonData, encoding: .utf8) ?? ""
+        } catch {
+            print("Error encoding LBLog to JSON:", error)
+            return nil
+        }
+    }
 }

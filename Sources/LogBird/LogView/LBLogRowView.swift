@@ -12,7 +12,8 @@ struct LogRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Header(createdAt: log.createdAt, level: log.level)
+            let date = LBManager.dateFormatter.string(from: Date(timeIntervalSince1970: log.createdAt))
+            Header(createdAt: date, level: log.level)
 
             if let message = log.message, !message.isEmpty {
                 Message(message)
@@ -26,7 +27,7 @@ struct LogRowView: View {
                 AdditionalInfo(additionalInfo)
             }
 
-            Location(file: log.file, function: log.function, line: log.line)
+            Location(log.location)
 
             Source(log.source)
         }
@@ -36,7 +37,6 @@ struct LogRowView: View {
         .shadow(color: Color.black.opacity(0.05), radius: 1, x: 0, y: 1)
     }
 
-    // Función para obtener el color de fondo según el nivel del log
     private func backgroundColor(for level: LBLogLevel) -> Color {
         switch level {
         case .debug:
@@ -94,22 +94,15 @@ private extension LogRowView {
                     InfoRow(label: "\(key)", value: userInfo[key] ?? "")
                 }
             }
-
         }
     }
 
     @ViewBuilder
-    func Location(file: String?, function: String?, line: Int?) -> some View {
+    func Location(_ location: LBLocation) -> some View {
         SectionView(title: "Location") {
-            if let file = file {
-                InfoRow(label: "File:", value: file)
-            }
-            if let function = function {
-                InfoRow(label: "Function:", value: function)
-            }
-            if let line = line {
-                InfoRow(label: "Line:", value: "\(line)")
-            }
+            InfoRow(label: "File:", value: location.file)
+            InfoRow(label: "Function:", value: location.function)
+            InfoRow(label: "Line:", value: "\(location.line)")
         }
     }
 
