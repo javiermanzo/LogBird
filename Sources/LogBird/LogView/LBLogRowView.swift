@@ -12,10 +12,15 @@ struct LogRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Header(createdAt: log.createdAt, level: log.level)
+            let date = LBManager.dateFormatter.string(from: Date(timeIntervalSince1970: log.createdAt))
+            Header(createdAt: date, level: log.level)
 
             if let message = log.message, !message.isEmpty {
                 Message(message)
+            }
+
+            if let extraMessages = log.extraMessages, !extraMessages.isEmpty {
+                ExtraMessages(extraMessages)
             }
 
             if let error = log.error {
@@ -26,7 +31,7 @@ struct LogRowView: View {
                 AdditionalInfo(additionalInfo)
             }
 
-            Location(file: log.file, function: log.function, line: log.line)
+            Location(log.location)
 
             Source(log.source)
         }
@@ -36,7 +41,6 @@ struct LogRowView: View {
         .shadow(color: Color.black.opacity(0.05), radius: 1, x: 0, y: 1)
     }
 
-    // Función para obtener el color de fondo según el nivel del log
     private func backgroundColor(for level: LBLogLevel) -> Color {
         switch level {
         case .debug:
@@ -74,10 +78,21 @@ private extension LogRowView {
     }
 
     @ViewBuilder
+    func ExtraMessages(_ extraMessages: [LBExtraMessage]) -> some View {
+        ForEach(extraMessages, id: \.self) { value in
+            SectionView(title: value.title) {
+                Text(value.message)
+            }
+        }
+    }
+
+    @ViewBuilder
     func AdditionalInfo(_ additionalInfo: [String: String]) -> some View {
         SectionView(title: "Additional Info") {
             ForEach(additionalInfo.keys.sorted(), id: \.self) { key in
-                Text("\(key): \(additionalInfo[key] ?? "")")
+                if let value = additionalInfo[key] {
+                    InfoRow(label: "\(key):", value: value)
+                }
             }
         }
     }
@@ -91,25 +106,20 @@ private extension LogRowView {
 
             if let userInfo = error.userInfo {
                 ForEach(userInfo.keys.sorted(), id: \.self) { key in
-                    InfoRow(label: "\(key)", value: userInfo[key] ?? "")
+                    if let value = userInfo[key] {
+                        InfoRow(label: "\(key):", value: value)
+                    }
                 }
             }
-
         }
     }
 
     @ViewBuilder
-    func Location(file: String?, function: String?, line: Int?) -> some View {
+    func Location(_ location: LBLocation) -> some View {
         SectionView(title: "Location") {
-            if let file = file {
-                InfoRow(label: "File:", value: file)
-            }
-            if let function = function {
-                InfoRow(label: "Function:", value: function)
-            }
-            if let line = line {
-                InfoRow(label: "Line:", value: "\(line)")
-            }
+            InfoRow(label: "File:", value: location.file)
+            InfoRow(label: "Function:", value: location.function)
+            InfoRow(label: "Line:", value: "\(location.line)")
         }
     }
 
