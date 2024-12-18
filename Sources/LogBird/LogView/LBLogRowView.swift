@@ -9,30 +9,30 @@ import SwiftUI
 
 struct LogRowView: View {
     let log: LBLog
-
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             let date = LBManager.dateFormatter.string(from: Date(timeIntervalSince1970: log.createdAt))
             Header(createdAt: date, level: log.level)
-
+            
             if let message = log.message, !message.isEmpty {
                 Message(message)
             }
-
+            
             if let extraMessages = log.extraMessages, !extraMessages.isEmpty {
                 ExtraMessages(extraMessages)
             }
-
+            
             if let error = log.error {
                 LogError(error)
             }
-
+            
             if let additionalInfo = log.additionalInfo, !additionalInfo.isEmpty {
                 AdditionalInfo(additionalInfo)
             }
-
+            
             Location(log.location)
-
+            
             Source(log.source)
         }
         .padding()
@@ -40,7 +40,7 @@ struct LogRowView: View {
         .cornerRadius(8)
         .shadow(color: Color.black.opacity(0.05), radius: 1, x: 0, y: 1)
     }
-
+    
     private func backgroundColor(for level: LBLogLevel) -> Color {
         switch level {
         case .debug:
@@ -69,14 +69,14 @@ private extension LogRowView {
                 .font(.title2)
         }
     }
-
+    
     @ViewBuilder
     func Message(_ message: String) -> some View {
         SectionView(title: "Message") {
             Text(message)
         }
     }
-
+    
     @ViewBuilder
     func ExtraMessages(_ extraMessages: [LBExtraMessage]) -> some View {
         ForEach(extraMessages, id: \.self) { value in
@@ -85,7 +85,7 @@ private extension LogRowView {
             }
         }
     }
-
+    
     @ViewBuilder
     func AdditionalInfo(_ additionalInfo: [String: String]) -> some View {
         SectionView(title: "Additional Info") {
@@ -96,14 +96,14 @@ private extension LogRowView {
             }
         }
     }
-
+    
     @ViewBuilder
     func LogError(_ error: LBError) -> some View {
         SectionView(title: "Error") {
             InfoRow(label: "Domain:", value: error.domain)
-
+            
             InfoRow(label: "Code:", value: "\(error.code)")
-
+            
             if let userInfo = error.userInfo {
                 ForEach(userInfo.keys.sorted(), id: \.self) { key in
                     if let value = userInfo[key] {
@@ -113,7 +113,7 @@ private extension LogRowView {
             }
         }
     }
-
+    
     @ViewBuilder
     func Location(_ location: LBLocation) -> some View {
         SectionView(title: "Location") {
@@ -122,7 +122,7 @@ private extension LogRowView {
             InfoRow(label: "Line:", value: "\(location.line)")
         }
     }
-
+    
     @ViewBuilder
     func Source(_ source: LBSource) -> some View {
         SectionView(title: "Source") {
@@ -130,7 +130,7 @@ private extension LogRowView {
             InfoRow(label: "Category:", value: source.category)
         }
     }
-
+    
     @ViewBuilder
     func SectionView(title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -141,7 +141,7 @@ private extension LogRowView {
                 .foregroundColor(.secondary)
         }
     }
-
+    
     @ViewBuilder
     func InfoRow(label: String, value: String) -> some View {
         HStack {

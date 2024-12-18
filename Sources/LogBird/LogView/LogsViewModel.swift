@@ -7,20 +7,19 @@
 
 import Foundation
 import Combine
-import LogBird
 
 class LogsViewModel: ObservableObject {
-
+    
     @Published var logs: [LBLog] = []
-
+    
     private var subscribers = Set<AnyCancellable>()
     private let logBird: LogBird
     private var timer: AnyCancellable?
-
+    
     init(logBird: LogBird = LogBird.shared) {
         self.logBird = logBird
     }
-
+    
     func startLogging() {
         logBird.logsPublisher
             .receive(on: DispatchQueue.main)
@@ -29,7 +28,7 @@ class LogsViewModel: ObservableObject {
             }
             .store(in: &subscribers)
     }
-
+    
     deinit {
         timer?.cancel()
     }
