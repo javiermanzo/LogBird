@@ -11,6 +11,7 @@ public struct LBLog: Codable, Identifiable {
     public let id: String = UUID().uuidString
     public let level: LBLogLevel
     public let message: String?
+    public let extraMessages: [LBExtraMessage]?
     public let additionalInfo: [String: String]?
     public let error: LBError?
     public let createdAt: Double
@@ -34,6 +35,16 @@ public struct LBError: Codable {
     public let code: Int
     public let localizedDescription: String
     public let userInfo: [String: String]?
+}
+
+public struct LBExtraMessage: Codable, Hashable {
+    let title: String
+    let message: String
+
+    public init(title: String, message: String) {
+        self.title = title
+        self.message = message
+    }
 }
 
 public extension LBLog {

@@ -29,8 +29,8 @@ extension LogBird {
         shared.setIdentifier(identifier)
     }
     
-    static public func log(_ message: String, additionalInfo: [String: Any]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
-        shared.log(message, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
+    static public func log(_ message: String, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: Any]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
+        shared.log(message, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 }
 
@@ -45,7 +45,7 @@ extension LogBird {
         manager.setIdentifier(value)
     }
     
-    public func log(_ message: String, additionalInfo: [String: Any]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
-        manager.log(message, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
+    public func log(_ message: String, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: Any]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
+        manager.log(message, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 }

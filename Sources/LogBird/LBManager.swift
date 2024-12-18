@@ -45,6 +45,7 @@ final class LBManager: @unchecked Sendable  {
     }
 
     func log(_ message: String? = nil,
+             extraMessages: [LBExtraMessage]? = nil,
              additionalInfo: [String: Any]? = nil,
              error: Error? = nil,
              level: LBLogLevel = .debug,
@@ -53,6 +54,7 @@ final class LBManager: @unchecked Sendable  {
              line: Int = #line) {
 
         let log = buildLogData(message: message,
+                               extraMessages: extraMessages,
                                additionalInfo: additionalInfo,
                                error: error,
                                level: level,
@@ -69,6 +71,7 @@ final class LBManager: @unchecked Sendable  {
     }
 
     private func buildLogData(message: String? = nil,
+                              extraMessages: [LBExtraMessage]? = nil,
                               additionalInfo: [String: Any]? = nil,
                               error: Error? = nil,
                               level: LBLogLevel,
@@ -83,6 +86,7 @@ final class LBManager: @unchecked Sendable  {
         let log = LBLog(
             level: level,
             message: message,
+            extraMessages: extraMessages,
             additionalInfo: additionalInfoString,
             error: errorData,
             createdAt: Date().timeIntervalSince1970,
@@ -122,16 +126,18 @@ final class LBManager: @unchecked Sendable  {
         let createdAt: String = "Created at:\n\(spacing)\(LBManager.dateFormatter.string(from: Date(timeIntervalSince1970: log.createdAt)))\n"
         logMessage = "\(logMessage)\(createdAt)"
 
-        // Source
-        let subsystem: String = "Subsystem: \(log.source.subsystem)\n"
-        let category: String = "Category: \(log.source.category)\n"
-        let source: String = "Source: \n\(spacing)\(subsystem)\(spacing)\(category)"
-        logMessage = "\(logMessage)\(source)"
-
         // Message
         if let message = log.message {
             let info: String = "Message:\n\(spacing)\(message)\n"
             logMessage = "\(logMessage)\(info)"
+        }
+
+        // Extra Messages
+        if let extraMessages = log.extraMessages {
+            for extraMessage in extraMessages {
+                let message: String = "\(extraMessage.title):\n\(spacing)\(extraMessage.message)\n"
+                logMessage = "\(logMessage)\(message)"
+            }
         }
 
         // Additional Info
@@ -167,7 +173,13 @@ final class LBManager: @unchecked Sendable  {
 
             logMessage = "\(logMessage)\(errorString)"
         }
-        
+
+        // Source
+        let subsystem: String = "Subsystem: \(log.source.subsystem)\n"
+        let category: String = "Category: \(log.source.category)\n"
+        let source: String = "Source: \n\(spacing)\(subsystem)\(spacing)\(category)"
+        logMessage = "\(logMessage)\(source)"
+
         // Location
         let file: String = "File: \(log.location.file)\n"
         let function: String = "Function: \(log.location.function)\n"

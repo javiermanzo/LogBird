@@ -19,6 +19,10 @@ struct LogRowView: View {
                 Message(message)
             }
 
+            if let extraMessages = log.extraMessages, !extraMessages.isEmpty {
+                ExtraMessages(extraMessages)
+            }
+
             if let error = log.error {
                 LogError(error)
             }
@@ -74,10 +78,21 @@ private extension LogRowView {
     }
 
     @ViewBuilder
+    func ExtraMessages(_ extraMessages: [LBExtraMessage]) -> some View {
+        ForEach(extraMessages, id: \.self) { value in
+            SectionView(title: value.title) {
+                Text(value.message)
+            }
+        }
+    }
+
+    @ViewBuilder
     func AdditionalInfo(_ additionalInfo: [String: String]) -> some View {
         SectionView(title: "Additional Info") {
             ForEach(additionalInfo.keys.sorted(), id: \.self) { key in
-                Text("\(key): \(additionalInfo[key] ?? "")")
+                if let value = additionalInfo[key] {
+                    InfoRow(label: "\(key):", value: value)
+                }
             }
         }
     }
@@ -91,7 +106,9 @@ private extension LogRowView {
 
             if let userInfo = error.userInfo {
                 ForEach(userInfo.keys.sorted(), id: \.self) { key in
-                    InfoRow(label: "\(key)", value: userInfo[key] ?? "")
+                    if let value = userInfo[key] {
+                        InfoRow(label: "\(key):", value: value)
+                    }
                 }
             }
         }

@@ -13,8 +13,12 @@ struct LogBirdExampleApp: App {
 
     init() {
         LogBird.setIdentifier("🏀")
+        let extraMessages: [LBExtraMessage] = [
+            LBExtraMessage(title: "Title Extra", message: "Message extra")
+        ]
+
         for level in LBLogLevel.allCases {
-            LogBird.log("Log Message", additionalInfo: ["test":"value"], level: level)
+            LogBird.log("Log Message", extraMessages: extraMessages, additionalInfo: ["test":"value"], level: level)
         }
 
         let someError = NSError(domain: "com.myapp.error", code: 500, userInfo: [NSLocalizedDescriptionKey: "Unknown error"])
