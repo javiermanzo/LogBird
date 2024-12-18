@@ -9,5 +9,5 @@ Pod::Spec.new do |s|
   s.social_media_url = 'https://www.linkedin.com/in/javiermanzo/'
   s.ios.deployment_target = '15.0'
   s.swift_version = '5.0'
-  s.source_files = 'Sources/Harbor/**/*'
+  s.source_files = 'Sources/LogBird/**/*'
 end
