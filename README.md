@@ -42,7 +42,7 @@ LogBird is a powerful yet simple logging library for Swift, designed to provide 
 
 ## Requirements
 
-- Swift 5.9 or 6.0 (the package supports both language modes)
+- Swift 6.0 toolchain (Swift 5 and 6 language modes are both supported; CocoaPods consumers can build with Swift 5.9)
 - iOS 15.0+
 - macOS 12.0+
 
@@ -165,7 +165,7 @@ customLogger.clearLogs()
 ## How It Works
 
 - **Storage**: every log is kept in an in-memory history (newest first). The history is unbounded, so call `clearLogs()` when you no longer need it.
-- **Console output**: under the hood, each entry is also forwarded to `OSLog` (`os.Logger`), so logs are visible in Console.app and via `log stream` under your subsystem and category.
+- **Console output**: under the hood, each entry is also forwarded to `OSLog` (`os.Logger`), so logs are visible in Console.app and via `log stream` under your subsystem and category (pass `--debug` to `log stream` to include debug-level entries).
 - **Combine**: `logsPublisher` is a `CurrentValueSubject` that emits the full history snapshot every time a log is added (or cleared), not just the new entry.
 - **SwiftUI**: `LBLogsView` observes `logsPublisher` through an internal `ObservableObject` view model and re-renders on each snapshot.
 - **Threading**: `LogBird` is safe to call from any thread. Internal state is protected by a serial dispatch queue, and publishing happens on a separate queue so subscriber callbacks never run while the internal lock is held.
