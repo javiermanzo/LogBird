@@ -61,6 +61,11 @@ public struct LBLocation: Codable {
         self.function = function
         self.line = line
     }
+
+    /// The file name component of `file`, without the module path that `#fileID` includes.
+    public var fileName: String {
+        file.split(separator: "/").last.map(String.init) ?? file
+    }
 }
 
 public struct LBError: Codable {

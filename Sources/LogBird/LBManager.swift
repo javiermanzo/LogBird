@@ -193,7 +193,7 @@ final class LBManager: @unchecked Sendable {
         logMessage = "\(logMessage)\(source)"
         
         // Location
-        let file: String = "File: \(log.location.file)\n"
+        let file: String = "File: \(log.location.fileName)\n"
         let function: String = "Function: \(log.location.function)\n"
         let line: String = "Line: \(log.location.line)\n"
         let location: String = "Location:\n\(spacing)\(file)\(spacing)\(function)\(spacing)\(line)"
