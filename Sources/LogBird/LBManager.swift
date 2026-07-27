@@ -9,11 +9,9 @@ import Foundation
 import OSLog
 import Combine
 
-// @unchecked Sendable: todas las mutaciones de estado mutable (`identifier`, `logs`)
-// y la lectura de `identifier` se serializan vía `dispatchQueue.sync`. Las properties
-// `let` (`logger`, `source`, `dispatchQueue`, `logsSubject`) son inmutables y
-// `CurrentValueSubject` es thread-safe por diseño. Con esto la conformidad Sendable
-// es veraz (corrige #2) y desaparece la data race de `logs` (corrige #1).
+// `@unchecked Sendable` is safe because all access to mutable state
+// (`identifier`, `logs`) is serialized through `dispatchQueue`. The remaining
+// stored properties are immutable `let`, and `CurrentValueSubject` is thread-safe.
 final class LBManager: @unchecked Sendable  {
     
     private let logger: Logger
@@ -57,7 +55,7 @@ final class LBManager: @unchecked Sendable  {
              function: String = #function,
              line: Int = #line) {
         
-        // Construcción pura: solo lee `source` (let inmutable) y parámetros. Thread-safe.
+        // `buildLogData` only reads immutable `source` and the supplied parameters.
         let log = buildLogData(message: message,
                                extraMessages: extraMessages,
                                additionalInfo: additionalInfo,
@@ -67,10 +65,7 @@ final class LBManager: @unchecked Sendable  {
                                function: function,
                                line: line)
         
-        // Sección crítica: la lectura de `identifier`, el render del mensaje, el OSLog,
-        // la mutación de `logs` y el publish se serializan en `dispatchQueue.sync`.
-        // Esto elimina la data race del array y vuelve atómica la lectura del identifier
-        // respecto de `setIdentifier` (corrige #1 y #2).
+        // Serialize identifier read, log mutation, and publish to keep state consistent.
         dispatchQueue.sync {
             let logMessage = self.generateLogMessage(log, identifier: self.identifier)
             self.logger.log(level: level.osLogType, "\(logMessage)")

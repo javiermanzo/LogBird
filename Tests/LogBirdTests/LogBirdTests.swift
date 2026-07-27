@@ -11,8 +11,8 @@ final class LogBirdTests: XCTestCase {
         // https://developer.apple.com/documentation/xctest/defining_test_cases_and_test_methods
     }
 
-    /// Snapshot sincrónico del histórico a través de la API pública `logsPublisher`.
-    /// `CurrentValueSubject` emite su valor actual de forma sincrónica al suscribirse.
+    /// Synchronous snapshot of the current log history via the public `logsPublisher`.
+    /// `CurrentValueSubject` emits its current value synchronously on subscription.
     private func currentLogs(of logBird: LogBird) -> [LBLog] {
         var snapshot: [LBLog] = []
         let cancellable = logBird.logsPublisher.sink { snapshot = $0 }
@@ -20,9 +20,8 @@ final class LogBirdTests: XCTestCase {
         return snapshot
     }
 
-    /// Verificación de #1 (data race en `logs.insert`) y #2 (`@unchecked Sendable`):
-    /// 1.000 logs desde 10 `Task` concurrentes deben conservarse todos, sin pérdidas
-    /// ni corrupción del array. Pensado para correr con Thread Sanitizer activo.
+    /// 1.000 logs across 10 concurrent tasks must all be preserved.
+    /// Intended to run with Thread Sanitizer enabled.
     func testConcurrentLoggingPreservesAllEntries() async {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "concurrency")
 
@@ -44,8 +43,7 @@ final class LogBirdTests: XCTestCase {
         XCTAssertEqual(count, total, "Concurrent logging lost entries — data race present.")
     }
 
-    /// `setIdentifier` (ahora sincrónico) debe ser visible inmediatamente en el
-    /// histórico publicado por el siguiente `log(...)`, sin necesidad de `await`.
+    /// `setIdentifier` must take effect before the next `log(...)` is published.
     func testSetIdentifierIsImmediatelyVisible() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "identifier")
 
