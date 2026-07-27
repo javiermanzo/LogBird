@@ -75,6 +75,13 @@ final class LBManager: @unchecked Sendable {
         }
     }
     
+    func clearLogs() {
+        dispatchQueue.sync {
+            self.logs = []
+            self.publishQueue.async { self.logsSubject.send([]) }
+        }
+    }
+
     private func buildLogData(message: String? = nil,
                               extraMessages: [LBExtraMessage]? = nil,
                               additionalInfo: [String: Any]? = nil,

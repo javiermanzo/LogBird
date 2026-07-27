@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'release/**']
+  pull_request:
+    branches: [main, 'release/**']
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+
+  pod-lint:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint podspec
+        run: pod lib lint LogBird.podspec --allow-warnings
