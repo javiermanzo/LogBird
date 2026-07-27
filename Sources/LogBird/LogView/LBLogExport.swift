@@ -19,7 +19,8 @@ enum LBLogExport {
     static let fileName = "logbird-logs.json"
 
     static func writeTemporaryFile(data: Data) -> URL? {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("logbird-logs-\(UUID().uuidString).json")
         do {
             try data.write(to: url, options: .atomic)
             return url
