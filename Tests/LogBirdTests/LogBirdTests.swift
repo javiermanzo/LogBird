@@ -11,13 +11,21 @@ final class LogBirdTests: XCTestCase {
         // https://developer.apple.com/documentation/xctest/defining_test_cases_and_test_methods
     }
 
-    /// Synchronous snapshot of the current log history via the public `logsPublisher`.
-    /// `CurrentValueSubject` emits its current value synchronously on subscription.
-    private func currentLogs(of logBird: LogBird) -> [LBLog] {
-        var snapshot: [LBLog] = []
-        let cancellable = logBird.logsPublisher.sink { snapshot = $0 }
+    /// Waits until `logsPublisher` reports at least `expectedCount` entries and
+    /// returns the latest snapshot. Publishing is asynchronous, so tests must
+    /// wait for delivery instead of reading the subject's value right away.
+    private func waitForLogs(of logBird: LogBird, count expectedCount: Int, timeout: TimeInterval = 5) -> [LBLog] {
+        let expectation = expectation(description: "logs reach \(expectedCount)")
+        var latest: [LBLog] = []
+        let cancellable = logBird.logsPublisher.sink { logs in
+            latest = logs
+            if logs.count >= expectedCount {
+                expectation.fulfill()
+            }
+        }
+        wait(for: [expectation], timeout: timeout)
         cancellable.cancel()
-        return snapshot
+        return latest
     }
 
     /// 1.000 logs across 10 concurrent tasks must all be preserved.
@@ -39,7 +47,7 @@ final class LogBirdTests: XCTestCase {
             }
         }
 
-        let count = currentLogs(of: logBird).count
+        let count = waitForLogs(of: logBird, count: total).count
         XCTAssertEqual(count, total, "Concurrent logging lost entries — data race present.")
     }
 
@@ -50,7 +58,7 @@ final class LogBirdTests: XCTestCase {
         logBird.setIdentifier("session-42")
         logBird.log("hello")
 
-        XCTAssertEqual(currentLogs(of: logBird).count, 1)
+        XCTAssertEqual(waitForLogs(of: logBird, count: 1).count, 1)
         logBird.setIdentifier(nil)
     }
 }

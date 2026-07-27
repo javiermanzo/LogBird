@@ -14,6 +14,9 @@ final class LBManager: @unchecked Sendable {
     private let logger: Logger
     private var identifier: String?
     private let dispatchQueue: DispatchQueue = DispatchQueue(label: "com.logbird.accessQueue")
+    // Publishing runs on its own serial queue so subscriber callbacks never execute
+    // while the state queue is held (avoids re-entrancy deadlocks).
+    private let publishQueue: DispatchQueue = DispatchQueue(label: "com.logbird.publishQueue")
     
     private let source: LBSource
     
@@ -62,12 +65,13 @@ final class LBManager: @unchecked Sendable {
                                function: function,
                                line: line)
         
-        // Serialize identifier read, log mutation, and publish to keep state consistent.
+        // Serialize identifier read and log mutation to keep state consistent.
         dispatchQueue.sync {
             let logMessage = self.generateLogMessage(log, identifier: self.identifier)
             self.logger.log(level: level.osLogType, "\(logMessage)")
             self.logs.insert(log, at: 0)
-            self.logsSubject.send(self.logs)
+            let snapshot = self.logs
+            self.publishQueue.async { self.logsSubject.send(snapshot) }
         }
     }
     
