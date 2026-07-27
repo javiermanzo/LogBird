@@ -11,7 +11,7 @@ import OSLog
 public enum LBLogLevel: String, Codable, CaseIterable {
     case debug, info, warning, error, critical
     
-    var osLogType: OSLogType {
+    public var osLogType: OSLogType {
         switch self {
         case .debug: return .debug
         case .info: return .info
