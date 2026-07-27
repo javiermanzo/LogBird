@@ -61,4 +61,28 @@ final class LogBirdTests: XCTestCase {
         XCTAssertEqual(waitForLogs(of: logBird, count: 1).count, 1)
         logBird.setIdentifier(nil)
     }
+
+    /// `clearLogs()` must empty the history and publish an empty snapshot.
+    func testClearLogsEmptiesHistory() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "clear")
+
+        logBird.log("first")
+        logBird.log("second")
+        XCTAssertEqual(waitForLogs(of: logBird, count: 2).count, 2)
+
+        let expectation = expectation(description: "logs are cleared")
+        var latest: [LBLog]? = nil
+        let cancellable = logBird.logsPublisher.sink { logs in
+            latest = logs
+            if logs.isEmpty {
+                expectation.fulfill()
+            }
+        }
+
+        logBird.clearLogs()
+
+        wait(for: [expectation], timeout: 5)
+        cancellable.cancel()
+        XCTAssertEqual(latest?.count, 0)
+    }
 }

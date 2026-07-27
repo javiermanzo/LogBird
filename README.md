@@ -4,10 +4,10 @@
 </p>
 
 ![Release](https://img.shields.io/github/v/release/javiermanzo/LogBird?style=flat-square)
-![CI](https://img.shields.io/github/actions/workflow/status/javiermanzo/LogBird/swift.yml?style=flat-square)
-[![Swift](https://img.shields.io/badge/Swift-5.9_6.0-orange?style=flat-square)](https://img.shields.io/badge/Swift-5.9_5.10_6.0-Orange?style=flat-square)
-[![Platforms](https://img.shields.io/badge/Platforms-macOS_iOS-yellowgreen?style=flat-square)](https://img.shields.io/badge/Platforms-macOS_iOS_tvOS_watchOS_vision_OS_Linux_Windows_Android-Green?style=flat-square) 
-![Swift Package Manager(https://swiftpackageindex.com/javiermanzo/LogBird)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
+[![CI](https://img.shields.io/github/actions/workflow/status/javiermanzo/LogBird/swift.yml?style=flat-square)](https://github.com/javiermanzo/LogBird/actions/workflows/swift.yml)
+[![Swift](https://img.shields.io/badge/Swift-5.9_6.0-orange?style=flat-square)](https://swift.org/)
+[![Platforms](https://img.shields.io/badge/Platforms-macOS_iOS-yellowgreen?style=flat-square)](https://github.com/javiermanzo/LogBird#requirements) 
+[![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://swiftpackageindex.com/javiermanzo/LogBird)
 
 LogBird is a powerful yet simple logging library for Swift, designed to provide flexible and efficient console logging.
 
@@ -24,6 +24,8 @@ LogBird is a powerful yet simple logging library for Swift, designed to provide 
   - [Log Parameters](#log-parameters)
   - [Combine Support](#combine-support)
   - [SwiftUI View](#swiftui-view)
+  - [Clearing Logs](#clearing-logs)
+- [How It Works](#how-it-works)
 - [Contributing](#contributing)
 - [Author](#author)
 - [License](#license)
@@ -36,11 +38,13 @@ LogBird is a powerful yet simple logging library for Swift, designed to provide 
 - [x] Customizable log identifier
 - [x] Combine support via `logsPublisher`
 - [x] SwiftUI `LBLogsView` for log visualization
+- [x] Clearable in-memory log history
 
 ## Requirements
 
-- Swift 5.9+
+- Swift 6.0 toolchain (Swift 5 and 6 language modes are both supported; CocoaPods consumers can build with Swift 5.9)
 - iOS 15.0+
+- macOS 12.0+
 
 ## Installation
 You can add LogBird to your project using [CocoaPods](https://cocoapods.org/) or [Swift Package Manager](https://swift.org/package-manager/).
@@ -149,6 +153,23 @@ struct ContentView: View {
 }
 ```
 
+### Clearing Logs
+Empty the in-memory log history at any time (e.g. after a logout or session reset). Subscribers of `logsPublisher` receive an empty snapshot:
+
+```swift
+LogBird.clearLogs()
+// or on an instance
+customLogger.clearLogs()
+```
+
+## How It Works
+
+- **Storage**: every log is kept in an in-memory history (newest first). The history is unbounded, so call `clearLogs()` when you no longer need it.
+- **Console output**: under the hood, each entry is also forwarded to `OSLog` (`os.Logger`), so logs are visible in Console.app and via `log stream` under your subsystem and category (pass `--debug` to `log stream` to include debug-level entries).
+- **Combine**: `logsPublisher` is a `CurrentValueSubject` that emits the full history snapshot every time a log is added (or cleared), not just the new entry.
+- **SwiftUI**: `LBLogsView` observes `logsPublisher` through an internal `ObservableObject` view model and re-renders on each snapshot.
+- **Threading**: `LogBird` is safe to call from any thread. Internal state is protected by a serial dispatch queue, and publishing happens on a separate queue so subscriber callbacks never run while the internal lock is held.
+
 ## Contributing
 If you encounter any issues, please submit an [issue](https://github.com/javiermanzo/LogBird/issues). [Pull requests](https://github.com/javiermanzo/LogBird/pulls) are also welcome!
 
@@ -156,4 +177,4 @@ If you encounter any issues, please submit an [issue](https://github.com/javierm
 LogBird was created by [Javier Manzo](https://www.linkedin.com/in/javiermanzo/).
 
 ## License
-LogBird is available under the MIT license. See the [LICENSE](https://github.com/javiermanzo/LogBird/blob/main/LICENSE.md) file for more info.
+LogBird is available under the MIT license. See the [LICENSE](https://github.com/javiermanzo/LogBird/blob/main/LICENSE) file for more info.
