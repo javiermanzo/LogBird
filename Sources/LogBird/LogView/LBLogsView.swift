@@ -39,7 +39,7 @@ public struct LBLogsView: View {
     @ViewBuilder
     private var content: some View {
         List(viewModel.filteredLogs) { log in
-            LogRowView(log: log)
+            LBLogRowView(log: log)
         }
         .listStyle(.plain)
         .accessibilityLabel("Logs list")

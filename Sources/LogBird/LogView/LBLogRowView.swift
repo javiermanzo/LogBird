@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-public struct LogRowView: View {
+public struct LBLogRowView: View {
     public let log: LBLog
 
     public init(log: LBLog) {
@@ -44,12 +44,20 @@ public struct LogRowView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .shadow(color: Color.black.opacity(0.05), radius: 1, x: 0, y: 1)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(log.level.rawValue.capitalized) log entry")
-        .accessibilityHint("Shows the message, location and source details")
+        .accessibilityLabel(rowAccessibilityLabel)
+        .accessibilityHint("Shows the location and source details")
     }
 }
 
-private extension LogRowView {
+private extension LBLogRowView {
+    var rowAccessibilityLabel: String {
+        var label = "\(log.level.rawValue.capitalized) log entry"
+        if let message = log.message, !message.isEmpty {
+            label += ": \(message)"
+        }
+        return label
+    }
+
     @ViewBuilder
     func Header(createdAt: String, level: LBLogLevel) -> some View {
         HStack {
@@ -145,11 +153,11 @@ private extension LogRowView {
 }
 
 #Preview("Light") {
-    LogRowView(log: .previewSample)
+    LBLogRowView(log: .previewSample)
 }
 
 #Preview("Dark") {
-    LogRowView(log: .previewSample)
+    LBLogRowView(log: .previewSample)
         .preferredColorScheme(.dark)
 }
 
