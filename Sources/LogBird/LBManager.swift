@@ -9,10 +9,7 @@ import Foundation
 import OSLog
 import Combine
 
-// `@unchecked Sendable` is safe because all access to mutable state
-// (`identifier`, `logs`) is serialized through `dispatchQueue`. The remaining
-// stored properties are immutable `let`, and `CurrentValueSubject` is thread-safe.
-final class LBManager: @unchecked Sendable  {
+final class LBManager: @unchecked Sendable {
     
     private let logger: Logger
     private var identifier: String?

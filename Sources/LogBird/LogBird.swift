@@ -8,8 +8,6 @@
 import Foundation
 import Combine
 
-// `@unchecked Sendable` is safe: `LogBird` holds no mutable state of its own
-// (`manager` is an immutable `let`), and thread-safety is delegated to `LBManager`.
 public class LogBird: @unchecked Sendable {
 
     private let manager: LBManager
