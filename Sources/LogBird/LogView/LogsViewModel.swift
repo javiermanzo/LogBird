@@ -16,7 +16,7 @@ final class LogsViewModel: ObservableObject {
     @Published var levelFilter: LBLogLevel?
 
     private let logBird: LogBird
-    private var loggingTask: Task<Void, Never>?
+    private var logsCancellable: AnyCancellable?
 
     init(logBird: LogBird = LogBird.shared) {
         self.logBird = logBird
@@ -40,11 +40,14 @@ final class LogsViewModel: ObservableObject {
     }
 
     private func subscribeToLogs() {
-        loggingTask = Task { [weak self, logBird] in
-            for await newLogs in logBird.logsPublisher.values {
-                self?.logs = newLogs
+        logsCancellable = logBird.logsPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newLogs in
+                // Delivery is on the main queue, so the main actor hop is guaranteed.
+                MainActor.assumeIsolated {
+                    self?.logs = newLogs
+                }
             }
-        }
     }
 
     private func matchesLevelFilter(_ log: LBLog) -> Bool {
@@ -70,9 +73,5 @@ final class LogsViewModel: ObservableObject {
         }
 
         return log.location.file.localizedCaseInsensitiveContains(query)
-    }
-
-    deinit {
-        loggingTask?.cancel()
     }
 }
