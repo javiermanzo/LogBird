@@ -9,11 +9,14 @@ import Foundation
 import OSLog
 import Combine
 
-final class LBManager: @unchecked Sendable  {
+final class LBManager: @unchecked Sendable {
     
     private let logger: Logger
     private var identifier: String?
     private let dispatchQueue: DispatchQueue = DispatchQueue(label: "com.logbird.accessQueue")
+    // Publishing runs on its own serial queue so subscriber callbacks never execute
+    // while the state queue is held (avoids re-entrancy deadlocks).
+    private let publishQueue: DispatchQueue = DispatchQueue(label: "com.logbird.publishQueue")
     
     private let source: LBSource
     
@@ -38,8 +41,7 @@ final class LBManager: @unchecked Sendable  {
     }
     
     func setIdentifier(_ value: String?) {
-        dispatchQueue.async { [weak self] in
-            guard let self = self else { return }
+        dispatchQueue.sync {
             self.identifier = value
         }
     }
@@ -53,6 +55,7 @@ final class LBManager: @unchecked Sendable  {
              function: String = #function,
              line: Int = #line) {
         
+        // `buildLogData` only reads immutable `source` and the supplied parameters.
         let log = buildLogData(message: message,
                                extraMessages: extraMessages,
                                additionalInfo: additionalInfo,
@@ -62,12 +65,14 @@ final class LBManager: @unchecked Sendable  {
                                function: function,
                                line: line)
         
-        let logMessage = generateLogMessage(log)
-        
-        logger.log(level: level.osLogType, "\(logMessage)")
-        
-        self.logs.insert(log, at: 0)
-        self.logsSubject.send(self.logs)
+        // Serialize identifier read and log mutation to keep state consistent.
+        dispatchQueue.sync {
+            let logMessage = self.generateLogMessage(log, identifier: self.identifier)
+            self.logger.log(level: level.osLogType, "\(logMessage)")
+            self.logs.insert(log, at: 0)
+            let snapshot = self.logs
+            self.publishQueue.async { self.logsSubject.send(snapshot) }
+        }
     }
     
     private func buildLogData(message: String? = nil,
@@ -110,7 +115,7 @@ final class LBManager: @unchecked Sendable  {
         )
     }
     
-    private func generateLogMessage(_ log: LBLog) -> String {
+    private func generateLogMessage(_ log: LBLog, identifier: String?) -> String {
         var logMessage: String = ""
         let spacing: String = "    "
         
