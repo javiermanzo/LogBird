@@ -8,6 +8,9 @@
 import Foundation
 import Combine
 
+// @unchecked Sendable: `LogBird` no tiene estado mutable propio (`manager` es `let`).
+// La thread-safety la garantiza `LBManager` (ver su documentación de Sendable),
+// por lo que esta conformidad es veraz (corrige #2).
 public class LogBird: @unchecked Sendable {
 
     private let manager: LBManager

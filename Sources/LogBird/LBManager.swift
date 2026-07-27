@@ -9,6 +9,11 @@ import Foundation
 import OSLog
 import Combine
 
+// @unchecked Sendable: todas las mutaciones de estado mutable (`identifier`, `logs`)
+// y la lectura de `identifier` se serializan vía `dispatchQueue.sync`. Las properties
+// `let` (`logger`, `source`, `dispatchQueue`, `logsSubject`) son inmutables y
+// `CurrentValueSubject` es thread-safe por diseño. Con esto la conformidad Sendable
+// es veraz (corrige #2) y desaparece la data race de `logs` (corrige #1).
 final class LBManager: @unchecked Sendable  {
     
     private let logger: Logger
@@ -38,8 +43,7 @@ final class LBManager: @unchecked Sendable  {
     }
     
     func setIdentifier(_ value: String?) {
-        dispatchQueue.async { [weak self] in
-            guard let self = self else { return }
+        dispatchQueue.sync {
             self.identifier = value
         }
     }
@@ -53,6 +57,7 @@ final class LBManager: @unchecked Sendable  {
              function: String = #function,
              line: Int = #line) {
         
+        // Construcción pura: solo lee `source` (let inmutable) y parámetros. Thread-safe.
         let log = buildLogData(message: message,
                                extraMessages: extraMessages,
                                additionalInfo: additionalInfo,
@@ -62,12 +67,16 @@ final class LBManager: @unchecked Sendable  {
                                function: function,
                                line: line)
         
-        let logMessage = generateLogMessage(log)
-        
-        logger.log(level: level.osLogType, "\(logMessage)")
-        
-        self.logs.insert(log, at: 0)
-        self.logsSubject.send(self.logs)
+        // Sección crítica: la lectura de `identifier`, el render del mensaje, el OSLog,
+        // la mutación de `logs` y el publish se serializan en `dispatchQueue.sync`.
+        // Esto elimina la data race del array y vuelve atómica la lectura del identifier
+        // respecto de `setIdentifier` (corrige #1 y #2).
+        dispatchQueue.sync {
+            let logMessage = self.generateLogMessage(log, identifier: self.identifier)
+            self.logger.log(level: level.osLogType, "\(logMessage)")
+            self.logs.insert(log, at: 0)
+            self.logsSubject.send(self.logs)
+        }
     }
     
     private func buildLogData(message: String? = nil,
@@ -110,7 +119,7 @@ final class LBManager: @unchecked Sendable  {
         )
     }
     
-    private func generateLogMessage(_ log: LBLog) -> String {
+    private func generateLogMessage(_ log: LBLog, identifier: String?) -> String {
         var logMessage: String = ""
         let spacing: String = "    "
         
