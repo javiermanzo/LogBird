@@ -7,6 +7,7 @@
 
 import Foundation
 import OSLog
+import SwiftUI
 
 public enum LBLogLevel: String, Codable, CaseIterable {
     case debug, info, warning, error, critical
@@ -28,6 +29,26 @@ public enum LBLogLevel: String, Codable, CaseIterable {
         case .warning: return "⚠️"
         case .error: return "❌"
         case .critical: return "🚨"
+        }
+    }
+
+    public var color: Color {
+        switch self {
+        case .debug: return .secondary
+        case .info: return .blue
+        case .warning: return .yellow
+        case .error: return .orange
+        case .critical: return .red
+        }
+    }
+
+    public var symbolName: String {
+        switch self {
+        case .debug: return "ant"
+        case .info: return "info.circle"
+        case .warning: return "exclamationmark.triangle"
+        case .error: return "xmark.octagon"
+        case .critical: return "flame"
         }
     }
 }
