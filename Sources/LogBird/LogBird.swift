@@ -43,8 +43,8 @@ extension LogBird {
         shared.clearLogs()
     }
 
-    static public func exportLogs(format: LBExportFormat = .json) -> Data {
-        shared.exportLogs(format: format)
+    static public func exportLogs(format: LBExportFormat = .json) throws -> Data {
+        try shared.exportLogs(format: format)
     }
 
     static public func writeLogs(to url: URL, format: LBExportFormat = .json) throws {
@@ -60,7 +60,8 @@ extension LogBird {
     }
 
     /// The maximum number of entries kept in memory. Once the limit is reached,
-    /// the oldest entries are discarded.
+    /// the oldest entries are discarded. Lowering the value trims the existing
+    /// history immediately and cannot be undone.
     public var maxLogs: Int {
         get { manager.maxLogs }
         set { manager.maxLogs = newValue }
@@ -78,9 +79,16 @@ extension LogBird {
         manager.clearLogs()
     }
 
+    var currentIdentifier: String? {
+        manager.currentIdentifier
+    }
+
     /// Exports the recorded history in the given format.
-    public func exportLogs(format: LBExportFormat = .json) -> Data {
-        manager.exportLogs(format: format)
+    ///
+    /// - Throws: an `EncodingError` if a log value cannot be encoded
+    ///   (e.g. a non-finite double in `additionalInfo`).
+    public func exportLogs(format: LBExportFormat = .json) throws -> Data {
+        try manager.exportLogs(format: format)
     }
 
     /// Writes the recorded history to a file in the given format.

@@ -59,7 +59,7 @@ final class LogsViewModelTests: XCTestCase {
             makeLog(message: "exported", level: .warning)
         ]
 
-        let data = viewModel.exportData()
+        let data = try XCTUnwrap(viewModel.exportData())
         let decoded = try JSONDecoder().decode([LBLog].self, from: data)
 
         XCTAssertEqual(decoded.count, 1)

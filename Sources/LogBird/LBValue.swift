@@ -11,6 +11,11 @@ import Foundation
 ///
 /// Values keep their original type when encoded to JSON, so exported logs
 /// contain real numbers, booleans and strings instead of stringified output.
+///
+/// Decoding is best-effort: JSON has no distinct URL type, so URLs decode as
+/// `.string`, and whole-number doubles (e.g. `12.0`, encoded as `12`) decode
+/// as `.int`. Encoding a non-finite double (NaN or infinity) throws, as with
+/// any `JSONEncoder`.
 public enum LBValue: Sendable {
     case string(String)
     case int(Int)

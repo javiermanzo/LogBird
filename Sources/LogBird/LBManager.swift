@@ -43,15 +43,18 @@ final class LBManager: @unchecked Sendable {
         set {
             dispatchQueue.sync {
                 self.storedMaxLogs = max(1, newValue)
+                let countBeforeTrim = self.logs.count
                 self.trimLogs()
-                let snapshot = self.logs
-                self.publishQueue.async { self.logsSubject.send(snapshot) }
+                if self.logs.count != countBeforeTrim {
+                    let snapshot = self.logs
+                    self.publishQueue.async { self.logsSubject.send(snapshot) }
+                }
             }
         }
     }
 
-    var currentLogs: [LBLog] {
-        dispatchQueue.sync { logs }
+    var currentIdentifier: String? {
+        dispatchQueue.sync { identifier }
     }
 
     init(subsystem: String, category: String, maxLogs: Int = 1000) {
@@ -104,9 +107,9 @@ final class LBManager: @unchecked Sendable {
         }
     }
 
-    func exportLogs(format: LBExportFormat) -> Data {
+    func exportLogs(format: LBExportFormat) throws -> Data {
         let (logs, identifier) = dispatchQueue.sync { (self.logs, self.identifier) }
-        return LBLogExporter.data(for: logs, format: format, identifier: identifier)
+        return try LBLogExporter.data(for: logs, format: format, identifier: identifier)
     }
 
     func writeLogs(to url: URL, format: LBExportFormat) throws {
@@ -154,6 +157,12 @@ final class LBManager: @unchecked Sendable {
             userInfo.merge(Self.contextInfo(for: decodingError)) { _, new in new }
         } else if let encodingError = error as? EncodingError {
             userInfo.merge(Self.contextInfo(for: encodingError)) { _, new in new }
+        }
+
+        // The extracted context replaces the bridged keys, which would stringify poorly.
+        if error is DecodingError || error is EncodingError {
+            userInfo.removeValue(forKey: "NSCodingPath")
+            userInfo.removeValue(forKey: "NSDebugDescription")
         }
 
         let userInfoString = userInfo.isEmpty ? nil : userInfo.mapValues(Self.userInfoString(from:))
@@ -225,7 +234,8 @@ final class LBManager: @unchecked Sendable {
             return number.stringValue
         default:
             let description = String(describing: value)
-            if description.hasPrefix("<"), description.hasSuffix(">") {
+            // The default NSObject description carries no information (`<ClassName: 0x...>`).
+            if description.hasPrefix("<"), description.contains(": 0x") {
                 return "<non-string>"
             }
             return description
@@ -265,7 +275,7 @@ final class LBManager: @unchecked Sendable {
         // Additional Info
         if let additionalInfo = log.additionalInfo {
             var info: String = "Additional Info:\n"
-            for key in additionalInfo.keys {
+            for key in additionalInfo.keys.sorted() {
                 if let value = additionalInfo[key] {
                     info = "\(info)\(spacing) \(key): \(value)\n"
                 }
@@ -282,7 +292,7 @@ final class LBManager: @unchecked Sendable {
 
             if let userInfo = error.userInfo {
                 userInfoString = "User Info:\n"
-                for key in userInfo.keys {
+                for key in userInfo.keys.sorted() {
                     if let value = userInfo[key] {
                         userInfoString = "\(userInfoString)\(spacing)\(spacing)\(key): \(value)\n"
                     }

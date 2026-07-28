@@ -94,7 +94,7 @@ public struct LBLogsView: View {
     }
 
     private func exportLogs(format: LBExportFormat) {
-        let data = viewModel.exportData(format: format)
+        guard let data = viewModel.exportData(format: format) else { return }
         #if os(iOS)
         if let url = LBLogExport.writeTemporaryFile(data: data, format: format) {
             exportFile = ExportFile(url: url)

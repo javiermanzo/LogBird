@@ -48,6 +48,26 @@ final class LBLogTests: XCTestCase {
         XCTAssertEqual(decoded, values)
     }
 
+    /// JSON has no distinct URL or whole-number-double type: both decode back
+    /// as `.string` and `.int` respectively. This pins that documented contract.
+    func testLBValueRoundTripLossyCases() throws {
+        let values: [String: LBValue] = [
+            "wholeDouble": .double(12.0),
+            "site": .url(URL(string: "https://example.com")!)
+        ]
+
+        let data = try JSONEncoder().encode(values)
+        let decoded = try JSONDecoder().decode([String: LBValue].self, from: data)
+
+        XCTAssertEqual(decoded["wholeDouble"], .int(12))
+        XCTAssertEqual(decoded["site"], .string("https://example.com"))
+    }
+
+    func testLBValueDecodeFailsForUnsupportedPayloads() {
+        XCTAssertThrowsError(try JSONDecoder().decode(LBValue.self, from: Data("[1, 2]".utf8)))
+        XCTAssertThrowsError(try JSONDecoder().decode(LBValue.self, from: Data(#"{"a": 1}"#.utf8)))
+    }
+
     func testLBValueExpressibleByLiterals() {
         let values: [String: LBValue] = ["count": 12, "ratio": 1.5, "flag": true, "name": "twelve"]
 

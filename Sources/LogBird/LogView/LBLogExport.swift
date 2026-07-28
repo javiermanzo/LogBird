@@ -39,7 +39,7 @@ enum LBLogExport {
         panel.nameFieldStringValue = fileName(for: format)
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
-            try? data.write(to: url)
+            try? data.write(to: url, options: .atomic)
         }
     }
 
@@ -47,7 +47,11 @@ enum LBLogExport {
         switch format {
         case .json:
             return .json
-        case .jsonLines, .plainText:
+        case .jsonLines:
+            // No system type claims the .jsonl extension; declaring it as plain
+            // text keeps the save panel from appending .txt to the file name.
+            return UTType(filenameExtension: format.fileExtension, conformingTo: .plainText) ?? .plainText
+        case .plainText:
             return .plainText
         }
     }
