@@ -16,11 +16,13 @@ import UniformTypeIdentifiers
 
 enum LBLogExport {
 
-    static let fileName = "logbird-logs.json"
+    static func fileName(for format: LBExportFormat) -> String {
+        "logbird-logs.\(format.fileExtension)"
+    }
 
-    static func writeTemporaryFile(data: Data) -> URL? {
+    static func writeTemporaryFile(data: Data, format: LBExportFormat) -> URL? {
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("logbird-logs-\(UUID().uuidString).json")
+            .appendingPathComponent("logbird-logs-\(UUID().uuidString).\(format.fileExtension)")
         do {
             try data.write(to: url, options: .atomic)
             return url
@@ -31,13 +33,22 @@ enum LBLogExport {
 
     #if os(macOS)
     @MainActor
-    static func presentSavePanel(data: Data) {
+    static func presentSavePanel(data: Data, format: LBExportFormat) {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = fileName
+        panel.allowedContentTypes = [contentType(for: format)]
+        panel.nameFieldStringValue = fileName(for: format)
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             try? data.write(to: url)
+        }
+    }
+
+    private static func contentType(for format: LBExportFormat) -> UTType {
+        switch format {
+        case .json:
+            return .json
+        case .jsonLines, .plainText:
+            return .plainText
         }
     }
     #endif

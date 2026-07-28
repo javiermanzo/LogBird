@@ -33,10 +33,8 @@ final class LogsViewModel: ObservableObject {
         logBird.clearLogs()
     }
 
-    func exportData() -> Data? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try? encoder.encode(filteredLogs)
+    func exportData(format: LBExportFormat = .json) -> Data {
+        LBLogExporter.data(for: filteredLogs, format: format)
     }
 
     private func subscribeToLogs() {
