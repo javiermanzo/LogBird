@@ -9,7 +9,7 @@ import Foundation
 import OSLog
 import SwiftUI
 
-public enum LBLogLevel: String, Codable, CaseIterable {
+public enum LBLogLevel: String, Codable, CaseIterable, Sendable {
     case debug, info, warning, error, critical
     
     public var osLogType: OSLogType {
@@ -50,5 +50,11 @@ public enum LBLogLevel: String, Codable, CaseIterable {
         case .error: return "xmark.octagon"
         case .critical: return "flame"
         }
+    }
+}
+
+extension LBLogLevel: CustomStringConvertible {
+    public var description: String {
+        rawValue
     }
 }

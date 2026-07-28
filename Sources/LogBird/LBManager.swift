@@ -10,51 +10,72 @@ import OSLog
 import Combine
 
 final class LBManager: @unchecked Sendable {
-    
+
     private let logger: Logger
     private var identifier: String?
     private let dispatchQueue: DispatchQueue = DispatchQueue(label: "com.logbird.accessQueue")
     // Publishing runs on its own serial queue so subscriber callbacks never execute
     // while the state queue is held (avoids re-entrancy deadlocks).
     private let publishQueue: DispatchQueue = DispatchQueue(label: "com.logbird.publishQueue")
-    
+
     private let source: LBSource
-    
+
     private var logs: [LBLog] = []
     private let logsSubject = CurrentValueSubject<[LBLog], Never>([])
     var logsPublisher: AnyPublisher<[LBLog], Never> {
         logsSubject.eraseToAnyPublisher()
     }
-    
-    static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS ZZZZ"
-        formatter.timeZone = TimeZone.current
-        formatter.locale = Locale.current
-        return formatter
+
+    static let dateStyle: Date.ISO8601FormatStyle = {
+        var style = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+        style.timeZone = .current
+        return style
     }()
-    
-    init(subsystem: String, category: String) {
+
+    private var storedMaxLogs: Int
+
+    /// The maximum number of entries kept in memory. Once the limit is reached,
+    /// the oldest entries are discarded. Values below 1 are treated as 1.
+    var maxLogs: Int {
+        get {
+            dispatchQueue.sync { storedMaxLogs }
+        }
+        set {
+            dispatchQueue.sync {
+                self.storedMaxLogs = max(1, newValue)
+                self.trimLogs()
+                let snapshot = self.logs
+                self.publishQueue.async { self.logsSubject.send(snapshot) }
+            }
+        }
+    }
+
+    var currentLogs: [LBLog] {
+        dispatchQueue.sync { logs }
+    }
+
+    init(subsystem: String, category: String, maxLogs: Int = 1000) {
         let source = LBSource(subsystem: subsystem, category: category)
         self.logger = Logger(subsystem: source.subsystem, category: source.category)
         self.source = source
+        self.storedMaxLogs = max(1, maxLogs)
     }
-    
+
     func setIdentifier(_ value: String?) {
         dispatchQueue.sync {
             self.identifier = value
         }
     }
-    
+
     func log(_ message: String? = nil,
              extraMessages: [LBExtraMessage]? = nil,
-             additionalInfo: [String: Any]? = nil,
+             additionalInfo: [String: LBValue]? = nil,
              error: Error? = nil,
              level: LBLogLevel = .debug,
              file: String = #fileID,
              function: String = #function,
              line: Int = #line) {
-        
+
         // `buildLogData` only reads immutable `source` and the supplied parameters.
         let log = buildLogData(message: message,
                                extraMessages: extraMessages,
@@ -64,17 +85,18 @@ final class LBManager: @unchecked Sendable {
                                file: file,
                                function: function,
                                line: line)
-        
+
         // Serialize identifier read and log mutation to keep state consistent.
         dispatchQueue.sync {
-            let logMessage = self.generateLogMessage(log, identifier: self.identifier)
-            self.logger.log(level: level.osLogType, "\(logMessage)")
+            let logMessage = Self.formattedMessage(for: log, identifier: self.identifier)
+            self.logger.log(level: level.osLogType, "\(logMessage, privacy: .public)")
             self.logs.insert(log, at: 0)
+            self.trimLogs()
             let snapshot = self.logs
             self.publishQueue.async { self.logsSubject.send(snapshot) }
         }
     }
-    
+
     func clearLogs() {
         dispatchQueue.sync {
             self.logs = []
@@ -82,68 +104,156 @@ final class LBManager: @unchecked Sendable {
         }
     }
 
+    func exportLogs(format: LBExportFormat) -> Data {
+        let (logs, identifier) = dispatchQueue.sync { (self.logs, self.identifier) }
+        return LBLogExporter.data(for: logs, format: format, identifier: identifier)
+    }
+
+    func writeLogs(to url: URL, format: LBExportFormat) throws {
+        try exportLogs(format: format).write(to: url, options: .atomic)
+    }
+
+    /// Keeps only the newest `storedMaxLogs` entries. Must be called on `dispatchQueue`.
+    private func trimLogs() {
+        if logs.count > storedMaxLogs {
+            logs.removeLast(logs.count - storedMaxLogs)
+        }
+    }
+
     private func buildLogData(message: String? = nil,
                               extraMessages: [LBExtraMessage]? = nil,
-                              additionalInfo: [String: Any]? = nil,
+                              additionalInfo: [String: LBValue]? = nil,
                               error: Error? = nil,
                               level: LBLogLevel,
                               file: String,
                               function: String,
                               line: Int) -> LBLog {
-        
+
         let errorData: LBError? = errorToLBError(error) ?? nil
-        
-        let additionalInfoString = additionalInfo?.compactMapValues { "\($0)" }
-        
+
         let log = LBLog(
             level: level,
             message: message,
             extraMessages: extraMessages,
-            additionalInfo: additionalInfoString,
+            additionalInfo: additionalInfo,
             error: errorData,
             createdAt: Date().timeIntervalSince1970,
             location: LBLocation(file: file, function: function, line: line),
             source: LBSource(subsystem: source.subsystem, category: source.category)
         )
-        
+
         return log
     }
-    
+
     private func errorToLBError(_ error: Error?) -> LBError? {
         guard let error else { return nil }
         let nsError = error as NSError
-        let userInfoString = nsError.userInfo.compactMapValues { "\($0)" }
-        
+
+        var userInfo = nsError.userInfo
+        if let decodingError = error as? DecodingError {
+            userInfo.merge(Self.contextInfo(for: decodingError)) { _, new in new }
+        } else if let encodingError = error as? EncodingError {
+            userInfo.merge(Self.contextInfo(for: encodingError)) { _, new in new }
+        }
+
+        let userInfoString = userInfo.isEmpty ? nil : userInfo.mapValues(Self.userInfoString(from:))
+
         return LBError(
             domain: nsError.domain,
             code: nsError.code,
+            type: String(describing: Swift.type(of: error)),
             localizedDescription: nsError.localizedDescription,
             userInfo: userInfoString
         )
     }
-    
-    private func generateLogMessage(_ log: LBLog, identifier: String?) -> String {
+
+    private static func contextInfo(for error: DecodingError) -> [String: Any] {
+        var info: [String: Any] = [:]
+        let context: DecodingError.Context
+
+        switch error {
+        case .typeMismatch(_, let errorContext),
+             .valueNotFound(_, let errorContext),
+             .dataCorrupted(let errorContext):
+            context = errorContext
+        case .keyNotFound(let codingKey, let errorContext):
+            info["missingKey"] = codingKey.stringValue
+            context = errorContext
+        @unknown default:
+            return info
+        }
+
+        info["codingPath"] = context.codingPath.map(\.stringValue).joined(separator: ".")
+        info["debugDescription"] = context.debugDescription
+        if let underlyingError = context.underlyingError {
+            info["underlyingError"] = underlyingError
+        }
+        return info
+    }
+
+    private static func contextInfo(for error: EncodingError) -> [String: Any] {
+        switch error {
+        case .invalidValue(_, let context):
+            var info: [String: Any] = [
+                "codingPath": context.codingPath.map(\.stringValue).joined(separator: "."),
+                "debugDescription": context.debugDescription
+            ]
+            if let underlyingError = context.underlyingError {
+                info["underlyingError"] = underlyingError
+            }
+            return info
+        @unknown default:
+            return [:]
+        }
+    }
+
+    /// Converts a `userInfo` value into a readable string. Objects without a
+    /// meaningful description are replaced by a placeholder instead of the
+    /// default `<ClassName: 0x...>` representation.
+    static func userInfoString(from value: Any) -> String {
+        switch value {
+        case let string as String:
+            return string
+        case let error as NSError:
+            return "\(error.domain) (\(error.code)): \(error.localizedDescription)"
+        case let url as URL:
+            return url.absoluteString
+        case let number as NSNumber:
+            if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                return number.boolValue ? "true" : "false"
+            }
+            return number.stringValue
+        default:
+            let description = String(describing: value)
+            if description.hasPrefix("<"), description.hasSuffix(">") {
+                return "<non-string>"
+            }
+            return description
+        }
+    }
+
+    static func formattedMessage(for log: LBLog, identifier: String?) -> String {
         var logMessage: String = ""
         let spacing: String = "    "
-        
+
         // Header
         var header: String = "\(log.level.emoji) \(log.level.rawValue.uppercased()) LogBird: \n"
         if let identifier {
             header = "\(identifier) \(header)"
         }
-        
+
         logMessage = "\(logMessage)\(header)"
-        
+
         // Created At
-        let createdAt: String = "Created at:\n\(spacing)\(LBManager.dateFormatter.string(from: Date(timeIntervalSince1970: log.createdAt)))\n"
+        let createdAt: String = "Created at:\n\(spacing)\(LBManager.dateStyle.format(Date(timeIntervalSince1970: log.createdAt)))\n"
         logMessage = "\(logMessage)\(createdAt)"
-        
+
         // Message
         if let message = log.message {
             let info: String = "Message:\n\(spacing)\(message)\n"
             logMessage = "\(logMessage)\(info)"
         }
-        
+
         // Extra Messages
         if let extraMessages = log.extraMessages {
             for extraMessage in extraMessages {
@@ -151,7 +261,7 @@ final class LBManager: @unchecked Sendable {
                 logMessage = "\(logMessage)\(message)"
             }
         }
-        
+
         // Additional Info
         if let additionalInfo = log.additionalInfo {
             var info: String = "Additional Info:\n"
@@ -162,13 +272,14 @@ final class LBManager: @unchecked Sendable {
             }
             logMessage = "\(logMessage)\(info)"
         }
-        
+
         // Error
         if let error = log.error {
             let domain: String = "Domain: \(error.domain)\n"
             let code: String = "Code: \(error.code)\n"
+            let type: String = "Type: \(error.type)\n"
             var userInfoString: String = ""
-            
+
             if let userInfo = error.userInfo {
                 userInfoString = "User Info:\n"
                 for key in userInfo.keys {
@@ -177,28 +288,28 @@ final class LBManager: @unchecked Sendable {
                     }
                 }
             }
-            
-            var errorString: String = "Error:\n\(spacing)\(domain)\(spacing)\(code)"
+
+            var errorString: String = "Error:\n\(spacing)\(type)\(spacing)\(domain)\(spacing)\(code)"
             if !userInfoString.isEmpty {
                 errorString = "\(errorString)\(spacing)\(userInfoString)"
             }
-            
+
             logMessage = "\(logMessage)\(errorString)"
         }
-        
+
         // Source
         let subsystem: String = "Subsystem: \(log.source.subsystem)\n"
         let category: String = "Category: \(log.source.category)\n"
         let source: String = "Source: \n\(spacing)\(subsystem)\(spacing)\(category)"
         logMessage = "\(logMessage)\(source)"
-        
+
         // Location
         let file: String = "File: \(log.location.fileName)\n"
         let function: String = "Function: \(log.location.function)\n"
         let line: String = "Line: \(log.location.line)\n"
         let location: String = "Location:\n\(spacing)\(file)\(spacing)\(function)\(spacing)\(line)"
         logMessage = "\(logMessage)\(location)"
-        
+
         return logMessage
     }
 }
