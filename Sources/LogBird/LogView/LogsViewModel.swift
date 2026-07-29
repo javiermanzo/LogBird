@@ -17,11 +17,13 @@ final class LogsViewModel: ObservableObject {
 
     private let logBird: LogBird
     private var logsCancellable: AnyCancellable?
+    private var logIDs: Set<String> = []
 
     init(logBird: LogBird = LogBird.shared) {
         self.logBird = logBird
         subscribeToLogs()
         logs = logBird.logs
+        logIDs = Set(logs.map(\.id))
     }
 
     var filteredLogs: [LBLog] {
@@ -30,13 +32,19 @@ final class LogsViewModel: ObservableObject {
         }
     }
 
+    /// Whether the visible logs are narrowed by a search query or a level filter.
+    var isFiltering: Bool {
+        levelFilter != nil || !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     func clearLogs() {
         logBird.clearLogs()
         logs = []
+        logIDs = []
     }
 
-    func exportData(format: LBExportFormat = .json) -> Data? {
-        try? LBLogExporter.data(for: filteredLogs, format: format, identifier: logBird.currentIdentifier)
+    func exportData(format: LBExportFormat = .json) throws -> Data {
+        try LBLogExporter.data(for: filteredLogs, format: format, identifier: logBird.currentIdentifier)
     }
 
     private func subscribeToLogs() {
@@ -53,14 +61,16 @@ final class LogsViewModel: ObservableObject {
     func handle(_ event: LBLogEvent) {
         switch event {
         case .recorded(let log):
-            guard !logs.contains(where: { $0.id == log.id }) else { return }
+            guard logIDs.insert(log.id).inserted else { return }
             logs.insert(log, at: 0)
             let overflow = logs.count - logBird.maxLogs
             if overflow > 0 {
+                logIDs.subtract(logs.suffix(overflow).map(\.id))
                 logs.removeLast(overflow)
             }
         case .cleared:
             logs = []
+            logIDs = []
         }
     }
 
@@ -82,7 +92,20 @@ final class LogsViewModel: ObservableObject {
             return true
         }
 
-        if let error = log.error, error.localizedDescription.localizedCaseInsensitiveContains(query) {
+        if let additionalInfo = log.additionalInfo,
+           additionalInfo.contains(where: { $0.key.localizedCaseInsensitiveContains(query) || $0.value.description.localizedCaseInsensitiveContains(query) }) {
+            return true
+        }
+
+        if let error = log.error,
+           error.localizedDescription.localizedCaseInsensitiveContains(query)
+            || error.domain.localizedCaseInsensitiveContains(query)
+            || String(error.code).contains(query) {
+            return true
+        }
+
+        if log.source.subsystem.localizedCaseInsensitiveContains(query)
+            || log.source.category.localizedCaseInsensitiveContains(query) {
             return true
         }
 

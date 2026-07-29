@@ -16,30 +16,35 @@ import UniformTypeIdentifiers
 
 enum LBLogExport {
 
-    static func fileName(for format: LBExportFormat) -> String {
-        "logbird-logs.\(format.fileExtension)"
+    /// A readable, sortable name such as `logbird-logs-20260729-143052.json`.
+    static func fileName(for format: LBExportFormat, date: Date = Date()) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return "logbird-logs-\(formatter.string(from: date)).\(format.fileExtension)"
     }
 
-    static func writeTemporaryFile(data: Data, format: LBExportFormat) -> URL? {
+    static func writeTemporaryFile(data: Data, format: LBExportFormat) throws -> URL {
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("logbird-logs-\(UUID().uuidString).\(format.fileExtension)")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+            .appendingPathComponent(fileName(for: format))
+        try data.write(to: url, options: .atomic)
+        return url
     }
 
     #if os(macOS)
     @MainActor
-    static func presentSavePanel(data: Data, format: LBExportFormat) {
+    static func presentSavePanel(data: Data, format: LBExportFormat, onError: @escaping (Error) -> Void) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [contentType(for: format)]
         panel.nameFieldStringValue = fileName(for: format)
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
-            try? data.write(to: url, options: .atomic)
+            do {
+                try data.write(to: url, options: .atomic)
+            } catch {
+                onError(error)
+            }
         }
     }
 
