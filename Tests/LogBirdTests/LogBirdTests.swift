@@ -156,7 +156,7 @@ final class LogBirdTests: XCTestCase {
     /// The shared instance needs a stable subsystem even where the host bundle
     /// has no identifier.
     func testSubsystemResolutionFallsBackToDefault() {
-        XCTAssertEqual(LogBird.resolvedSubsystem(bundleIdentifier: nil), "com.logbird.unknown")
+        XCTAssertEqual(LogBird.resolvedSubsystem(bundleIdentifier: nil), "com.logbird.default")
         XCTAssertEqual(LogBird.resolvedSubsystem(bundleIdentifier: "com.example.app"), "com.example.app")
     }
 }

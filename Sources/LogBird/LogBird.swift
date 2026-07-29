@@ -26,7 +26,7 @@ extension LogBird {
     /// Returns the bundle identifier to use as subsystem, or a stable default
     /// when the host bundle has none.
     static func resolvedSubsystem(bundleIdentifier: String?) -> String {
-        bundleIdentifier ?? "com.logbird.unknown"
+        bundleIdentifier ?? "com.logbird.default"
     }
 
     /// Publishes history events as they happen: `recorded` for each new entry
