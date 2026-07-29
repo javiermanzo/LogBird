@@ -174,14 +174,23 @@ final class LogBirdTests: XCTestCase {
         LogBird.setIdentifier("static-facade")
         LogBird.log("static-facade-message", additionalInfo: ["count": .int(1)], level: .info)
 
+        let secret = "static-secret"
+        LogBird.log("token: \(secret, privacy: .private)")
+
         wait(for: [publishedExpectation], timeout: 5)
         cancellable.cancel()
 
         let logged = LogBird.logs.first { $0.message == "static-facade-message" }
         XCTAssertEqual(logged?.additionalInfo?["count"], .int(1))
         XCTAssertEqual(LogBird.shared.currentIdentifier, "static-facade")
+        XCTAssertTrue(LogBird.logs.contains { $0.message == "token: <redacted>" })
 
         XCTAssertFalse(try LogBird.exportLogs().isEmpty)
+
+        let exportURL = FileManager.default.temporaryDirectory.appendingPathComponent("logbird-static-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: exportURL) }
+        try LogBird.writeLogs(to: exportURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: exportURL.path))
 
         LogBird.clearLogs()
         XCTAssertFalse(LogBird.logs.contains { $0.message == "static-facade-message" })

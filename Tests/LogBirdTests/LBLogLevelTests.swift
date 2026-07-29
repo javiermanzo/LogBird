@@ -16,7 +16,7 @@ final class LBLogLevelTests: XCTestCase {
         XCTAssertEqual(LBLogLevel.critical.osLogType, .fault)
     }
 
-    func testEveryLevelDefinesDistinctUIPresentation() {
+    func testEveryLevelDefinesDistinctEmojiAndSymbol() {
         var emojis: Set<String> = []
         var symbols: Set<String> = []
 
