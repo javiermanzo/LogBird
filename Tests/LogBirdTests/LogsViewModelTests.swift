@@ -72,6 +72,28 @@ final class LogsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.logs.map(\.message), ["one", "three"])
     }
 
+    func testRecordedEventsAreIgnoredWhenRetentionIsDisabled() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "vm-zero-retention", maxLogs: 0)
+        let viewModel = LogsViewModel(logBird: logBird)
+
+        viewModel.handle(.recorded(makeLog(message: "dropped", level: .info)))
+
+        XCTAssertTrue(viewModel.logs.isEmpty)
+    }
+
+    func testDisablingRetentionAtRuntimeEmptiesViewModelOnNextEvent() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "vm-runtime-zero", maxLogs: 10)
+        let viewModel = LogsViewModel(logBird: logBird)
+
+        viewModel.handle(.recorded(makeLog(message: "kept", level: .info)))
+        XCTAssertEqual(viewModel.logs.count, 1)
+
+        logBird.maxLogs = 0
+        viewModel.handle(.recorded(makeLog(message: "dropped", level: .info)))
+
+        XCTAssertTrue(viewModel.logs.isEmpty)
+    }
+
     func testIsFilteringReflectsQueryAndLevelFilter() {
         let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "is-filtering"))
 

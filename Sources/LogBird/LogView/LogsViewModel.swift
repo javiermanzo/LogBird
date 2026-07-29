@@ -61,9 +61,18 @@ final class LogsViewModel: ObservableObject {
     func handle(_ event: LBLogEvent) {
         switch event {
         case .recorded(let log):
+            let maxLogs = logBird.maxLogs
+            guard maxLogs > 0 else {
+                // Retention is disabled; the view mirrors the empty history.
+                if !logs.isEmpty {
+                    logs = []
+                    logIDs = []
+                }
+                return
+            }
             guard logIDs.insert(log.id).inserted else { return }
             logs.insert(log, at: 0)
-            let overflow = logs.count - logBird.maxLogs
+            let overflow = logs.count - maxLogs
             if overflow > 0 {
                 logIDs.subtract(logs.suffix(overflow).map(\.id))
                 logs.removeLast(overflow)
@@ -100,7 +109,7 @@ final class LogsViewModel: ObservableObject {
         if let error = log.error,
            error.localizedDescription.localizedCaseInsensitiveContains(query)
             || error.domain.localizedCaseInsensitiveContains(query)
-            || String(error.code).contains(query)
+            || String(error.code).localizedCaseInsensitiveContains(query)
             || (error.userInfo?.contains(where: { $0.key.localizedCaseInsensitiveContains(query) || $0.value.localizedCaseInsensitiveContains(query) }) ?? false) {
             return true
         }
