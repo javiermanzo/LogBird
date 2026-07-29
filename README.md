@@ -6,7 +6,7 @@
 ![Release](https://img.shields.io/github/v/release/javiermanzo/LogBird?style=flat-square)
 [![CI](https://img.shields.io/github/actions/workflow/status/javiermanzo/LogBird/swift.yml?style=flat-square)](https://github.com/javiermanzo/LogBird/actions/workflows/swift.yml)
 [![Swift](https://img.shields.io/badge/Swift-5.9_6.0-orange?style=flat-square)](https://swift.org/)
-[![Platforms](https://img.shields.io/badge/Platforms-macOS_iOS-yellowgreen?style=flat-square)](https://github.com/javiermanzo/LogBird#requirements) 
+[![Platforms](https://img.shields.io/badge/Platforms-iOS%20%7C%20macOS%20%7C%20tvOS%20%7C%20watchOS-yellowgreen?style=flat-square)](https://github.com/javiermanzo/LogBird#requirements) 
 [![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://swiftpackageindex.com/javiermanzo/LogBird)
 
 LogBird is a powerful yet simple logging library for Swift, designed to provide flexible and efficient console logging.
@@ -44,6 +44,8 @@ LogBird is a powerful yet simple logging library for Swift, designed to provide 
 - Swift 5.9 or 6.0 toolchain (Swift 5 and 6 language modes are both supported)
 - iOS 15.0+
 - macOS 12.0+
+- tvOS 15.0+
+- watchOS 8.0+
 
 ## Installation
 LogBird is distributed as a Swift Package. Add it to your project using [Swift Package Manager](https://swift.org/package-manager/).
