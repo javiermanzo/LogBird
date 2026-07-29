@@ -110,7 +110,9 @@ public struct LBLogsView: View {
     /// The export covers what the list currently shows; the title says so when
     /// a search query or level filter narrows the visible entries.
     private var exportMenuTitle: String {
-        viewModel.isFiltering ? "Export \(viewModel.filteredLogs.count) Filtered Logs" : "Export Logs"
+        guard viewModel.isFiltering else { return "Export Logs" }
+        let count = viewModel.filteredLogs.count
+        return count == 1 ? "Export 1 Filtered Log" : "Export \(count) Filtered Logs"
     }
 
     private func exportLogs(format: LBExportFormat) {

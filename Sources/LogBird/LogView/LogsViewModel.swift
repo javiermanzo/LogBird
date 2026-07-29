@@ -100,7 +100,8 @@ final class LogsViewModel: ObservableObject {
         if let error = log.error,
            error.localizedDescription.localizedCaseInsensitiveContains(query)
             || error.domain.localizedCaseInsensitiveContains(query)
-            || String(error.code).contains(query) {
+            || String(error.code).contains(query)
+            || (error.userInfo?.contains(where: { $0.key.localizedCaseInsensitiveContains(query) || $0.value.localizedCaseInsensitiveContains(query) }) ?? false) {
             return true
         }
 

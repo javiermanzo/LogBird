@@ -59,6 +59,35 @@ final class LogsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.logs.map(\.message), ["three", "two"])
     }
 
+    func testTrimmedLogCanBeRedelivered() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "trim-redeliver", maxLogs: 2)
+        let viewModel = LogsViewModel(logBird: logBird)
+        let trimmed = makeLog(message: "one", level: .info)
+
+        viewModel.handle(.recorded(trimmed))
+        viewModel.handle(.recorded(makeLog(message: "two", level: .info)))
+        viewModel.handle(.recorded(makeLog(message: "three", level: .info)))
+        viewModel.handle(.recorded(trimmed))
+
+        XCTAssertEqual(viewModel.logs.map(\.message), ["one", "three"])
+    }
+
+    func testIsFilteringReflectsQueryAndLevelFilter() {
+        let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "is-filtering"))
+
+        XCTAssertFalse(viewModel.isFiltering)
+
+        viewModel.searchText = "   "
+        XCTAssertFalse(viewModel.isFiltering)
+
+        viewModel.searchText = "network"
+        XCTAssertTrue(viewModel.isFiltering)
+
+        viewModel.searchText = ""
+        viewModel.levelFilter = .error
+        XCTAssertTrue(viewModel.isFiltering)
+    }
+
     func testClearedEventEmptiesViewModel() {
         let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "cleared-event"))
         viewModel.handle(.recorded(makeLog(message: "to-be-cleared", level: .info)))
@@ -127,7 +156,7 @@ final class LogsViewModelTests: XCTestCase {
 
     func testSearchMatchesErrorDomainAndCode() {
         let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "search-error"))
-        let error = LBError(domain: "com.test.networking", code: 401, type: "NSError", localizedDescription: "Unauthorized")
+        let error = LBError(domain: "com.test.networking", code: 401, type: "NSError", localizedDescription: "Unauthorized", userInfo: ["endpoint": "/login"])
         viewModel.logs = [
             makeLog(message: "one", level: .error, error: error),
             makeLog(message: "two", level: .info)
@@ -137,6 +166,9 @@ final class LogsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
 
         viewModel.searchText = "401"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+
+        viewModel.searchText = "endpoint"
         XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
     }
 

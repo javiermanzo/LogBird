@@ -69,7 +69,7 @@ extension LogBird {
 
     /// The keys considered sensitive when redacting. A key is sensitive when it
     /// contains any of these values; matching is case-insensitive and ignores
-    /// underscores, hyphens and spaces, so `accessToken` and `ACCESS-TOKEN`
+    /// underscores, hyphens and whitespace, so `accessToken` and `ACCESS-TOKEN`
     /// match `token`.
     ///
     /// Setting this property replaces the default keys; append to
@@ -145,7 +145,7 @@ extension LogBird {
 
     /// The keys considered sensitive when redacting. A key is sensitive when it
     /// contains any of these values; matching is case-insensitive and ignores
-    /// underscores, hyphens and spaces, so `accessToken` and `ACCESS-TOKEN`
+    /// underscores, hyphens and whitespace, so `accessToken` and `ACCESS-TOKEN`
     /// match `token`.
     ///
     /// Setting this property replaces the default keys; append to

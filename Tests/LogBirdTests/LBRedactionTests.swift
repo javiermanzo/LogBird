@@ -138,6 +138,15 @@ final class LBRedactionTests: XCTestCase {
         XCTAssertEqual(redacted?.value, "<redacted>")
     }
 
+    func testExtraMessagesUntouchedWhenRedactionDisabled() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-extra-disabled")
+        logBird.redactSensitiveFields = false
+
+        logBird.log("request", extraMessages: [LBExtraMessage(key: "Authorization", value: "Bearer abc123")])
+
+        XCTAssertEqual(logBird.logs.first?.extraMessages?.first?.value, "Bearer abc123")
+    }
+
     func testPlainTextExportDoesNotLeakSensitiveValues() throws {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-plaintext")
 

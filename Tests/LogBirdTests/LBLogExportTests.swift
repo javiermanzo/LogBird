@@ -27,4 +27,20 @@ final class LBLogExportTests: XCTestCase {
         XCTAssertTrue(url.lastPathComponent.hasPrefix("logbird-logs-"))
         XCTAssertTrue(url.lastPathComponent.hasSuffix(".log"))
     }
+
+    func testWriteTemporaryFileKeepsExistingFiles() throws {
+        let first = Data("first".utf8)
+        let second = Data("second".utf8)
+
+        let firstURL = try LBLogExport.writeTemporaryFile(data: first, format: .json)
+        let secondURL = try LBLogExport.writeTemporaryFile(data: second, format: .json)
+        defer {
+            try? FileManager.default.removeItem(at: firstURL)
+            try? FileManager.default.removeItem(at: secondURL)
+        }
+
+        XCTAssertNotEqual(firstURL, secondURL)
+        XCTAssertEqual(try Data(contentsOf: firstURL), first)
+        XCTAssertEqual(try Data(contentsOf: secondURL), second)
+    }
 }

@@ -10,7 +10,7 @@ import Foundation
 /// Replaces values under sensitive keys with a fixed placeholder.
 ///
 /// A key is sensitive when it contains any of the configured keys. Matching is
-/// case-insensitive and ignores underscores, hyphens and spaces, so
+/// case-insensitive and ignores underscores, hyphens and whitespace, so
 /// `accessToken`, `access-token` and `ACCESS_TOKEN` all match `token`.
 struct LBRedactor: Sendable {
 
