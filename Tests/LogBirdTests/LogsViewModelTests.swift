@@ -27,6 +27,59 @@ final class LogsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.logs.first?.message, "viewmodel-publishes")
     }
 
+    func testViewModelSeedsExistingHistory() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "seed")
+        logBird.log("already-there")
+
+        let viewModel = LogsViewModel(logBird: logBird)
+
+        XCTAssertEqual(viewModel.logs.map(\.message), ["already-there"])
+    }
+
+    func testViewModelKeepsEachEntryOnce() async throws {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "dedupe")
+        logBird.log("before-init")
+
+        let viewModel = LogsViewModel(logBird: logBird)
+
+        // Allow any queued delivery for the seeded entry to arrive.
+        try await Task.sleep(nanoseconds: 300_000_000)
+
+        XCTAssertEqual(viewModel.logs.map(\.message), ["before-init"])
+    }
+
+    func testViewModelCapsHistoryAtMaxLogs() async throws {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "cap", maxLogs: 2)
+        let viewModel = LogsViewModel(logBird: logBird)
+
+        logBird.log("one")
+        logBird.log("two")
+        logBird.log("three")
+
+        for _ in 0..<50 where viewModel.logs.count < 2 {
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+
+        XCTAssertEqual(viewModel.logs.map(\.message), ["three", "two"])
+    }
+
+    func testClearLogsEmptiesViewModel() async throws {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "vm-clear")
+        let viewModel = LogsViewModel(logBird: logBird)
+
+        logBird.log("to-be-cleared")
+
+        for _ in 0..<50 where viewModel.logs.isEmpty {
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        XCTAssertEqual(viewModel.logs.count, 1)
+
+        viewModel.clearLogs()
+
+        XCTAssertTrue(viewModel.logs.isEmpty)
+        XCTAssertTrue(logBird.logs.isEmpty)
+    }
+
     func testFilteredLogsAppliesLevelFilter() {
         let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "level-filter"))
         viewModel.logs = [

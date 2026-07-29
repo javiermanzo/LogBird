@@ -123,7 +123,7 @@ LogBird.log("Log Error",
 ```
 
 ### Combine Support
-Access logs using Combine to react to new logs in real time:
+React to new logs in real time with Combine. `logsPublisher` emits each entry as it is recorded:
 
 ```swift
 import Combine
@@ -134,11 +134,13 @@ let logBird = LogBird(subsystem: "com.example.myapp", category: "UI")
 
 LogBird.logsPublisher
     .receive(on: DispatchQueue.main)
-    .sink { [weak self] newLogs in
-        self?.logs = newLogs
+    .sink { [weak self] newLog in
+        self?.logs.insert(newLog, at: 0)
     }
     .store(in: &subscribers)
 ```
+
+The recorded history is always available synchronously via `LogBird.logs` (newest first).
 
 ### SwiftUI View
 Use `LBLogsView` to visualize logs in your app. You can optionally provide a custom `LogBird` instance; by default, it uses the static instance:
@@ -154,7 +156,7 @@ struct ContentView: View {
 ```
 
 ### Clearing Logs
-Empty the in-memory log history at any time (e.g. after a logout or session reset). Subscribers of `logsPublisher` receive an empty snapshot:
+Empty the in-memory log history at any time (e.g. after a logout or session reset):
 
 ```swift
 LogBird.clearLogs()
@@ -166,8 +168,8 @@ customLogger.clearLogs()
 
 - **Storage**: every log is kept in an in-memory history (newest first). The history is unbounded, so call `clearLogs()` when you no longer need it.
 - **Console output**: under the hood, each entry is also forwarded to `OSLog` (`os.Logger`), so logs are visible in Console.app and via `log stream` under your subsystem and category (pass `--debug` to `log stream` to include debug-level entries).
-- **Combine**: `logsPublisher` is a `CurrentValueSubject` that emits the full history snapshot every time a log is added (or cleared), not just the new entry.
-- **SwiftUI**: `LBLogsView` observes `logsPublisher` through an internal `ObservableObject` view model and re-renders on each snapshot.
+- **Combine**: `logsPublisher` emits each new entry as it is recorded; it does not replay the existing history to new subscribers. Read `logs` for a synchronous snapshot of the recorded history.
+- **SwiftUI**: `LBLogsView` observes `logsPublisher` through an internal `ObservableObject` view model and re-renders on each new entry.
 - **Threading**: `LogBird` is safe to call from any thread. Internal state is protected by a serial dispatch queue, and publishing happens on a separate queue so subscriber callbacks never run while the internal lock is held.
 
 ## Contributing

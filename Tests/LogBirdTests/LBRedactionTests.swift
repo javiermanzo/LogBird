@@ -3,24 +3,6 @@ import XCTest
 
 final class LBRedactionTests: XCTestCase {
 
-    /// Waits until `logsPublisher` reports at least `expectedCount` entries and
-    /// returns the latest snapshot.
-    private func waitForLogs(of logBird: LogBird, count expectedCount: Int, timeout: TimeInterval = 5) -> [LBLog] {
-        let expectation = expectation(description: "logs reach \(expectedCount)")
-        var latest: [LBLog] = []
-        var fulfilled = false
-        let cancellable = logBird.logsPublisher.sink { logs in
-            latest = logs
-            if !fulfilled, logs.count >= expectedCount {
-                fulfilled = true
-                expectation.fulfill()
-            }
-        }
-        wait(for: [expectation], timeout: timeout)
-        cancellable.cancel()
-        return latest
-    }
-
     func testAdditionalInfoRedactsDefaultKeys() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-defaults")
 
@@ -31,7 +13,7 @@ final class LBRedactionTests: XCTestCase {
             "retries": .int(2)
         ])
 
-        let info = waitForLogs(of: logBird, count: 1).first?.additionalInfo
+        let info = logBird.logs.first?.additionalInfo
         XCTAssertEqual(info?["username"], .string("javier"))
         XCTAssertEqual(info?["password"], .string("<redacted>"))
         XCTAssertEqual(info?["Authorization"], .string("<redacted>"))
@@ -49,7 +31,7 @@ final class LBRedactionTests: XCTestCase {
             "sessionId": .string("e")
         ])
 
-        let info = waitForLogs(of: logBird, count: 1).first?.additionalInfo
+        let info = logBird.logs.first?.additionalInfo
         XCTAssertEqual(info?["accessToken"], .string("<redacted>"))
         XCTAssertEqual(info?["AUTH_TOKEN"], .string("<redacted>"))
         XCTAssertEqual(info?["apiKey"], .string("<redacted>"))
@@ -62,7 +44,7 @@ final class LBRedactionTests: XCTestCase {
 
         logBird.log("typed", additionalInfo: ["token": .int(12345)])
 
-        let info = waitForLogs(of: logBird, count: 1).first?.additionalInfo
+        let info = logBird.logs.first?.additionalInfo
         XCTAssertEqual(info?["token"], .string("<redacted>"))
     }
 
@@ -72,7 +54,7 @@ final class LBRedactionTests: XCTestCase {
 
         logBird.log("raw", additionalInfo: ["token": .string("abc123")])
 
-        let info = waitForLogs(of: logBird, count: 1).first?.additionalInfo
+        let info = logBird.logs.first?.additionalInfo
         XCTAssertEqual(info?["token"], .string("abc123"))
     }
 
@@ -85,7 +67,7 @@ final class LBRedactionTests: XCTestCase {
             "token": .string("abc123")
         ])
 
-        let info = waitForLogs(of: logBird, count: 1).first?.additionalInfo
+        let info = logBird.logs.first?.additionalInfo
         XCTAssertEqual(info?["sessionId"], .string("<redacted>"))
         XCTAssertEqual(info?["token"], .string("abc123"))
     }
@@ -99,8 +81,8 @@ final class LBRedactionTests: XCTestCase {
         first.log("raw", additionalInfo: ["token": .string("abc123")])
         second.log("redacted", additionalInfo: ["token": .string("abc123")])
 
-        XCTAssertEqual(waitForLogs(of: first, count: 1).first?.additionalInfo?["token"], .string("abc123"))
-        XCTAssertEqual(waitForLogs(of: second, count: 1).first?.additionalInfo?["token"], .string("<redacted>"))
+        XCTAssertEqual(first.logs.first?.additionalInfo?["token"], .string("abc123"))
+        XCTAssertEqual(second.logs.first?.additionalInfo?["token"], .string("<redacted>"))
         XCTAssertEqual(second.sensitiveKeys, LogBird.defaultSensitiveKeys)
     }
 
@@ -110,7 +92,7 @@ final class LBRedactionTests: XCTestCase {
 
         logBird.log("raw", additionalInfo: ["token": .string("abc123")])
 
-        let info = waitForLogs(of: logBird, count: 1).first?.additionalInfo
+        let info = logBird.logs.first?.additionalInfo
         XCTAssertEqual(info?["token"], .string("abc123"))
     }
 
@@ -133,7 +115,7 @@ final class LBRedactionTests: XCTestCase {
 
         logBird.log("request failed", error: error, level: .error)
 
-        let userInfo = waitForLogs(of: logBird, count: 1).first?.error?.userInfo
+        let userInfo = logBird.logs.first?.error?.userInfo
         XCTAssertEqual(userInfo?["Authorization"], "<redacted>")
         XCTAssertEqual(userInfo?["url"], "https://api.example.com/login")
     }

@@ -21,6 +21,7 @@ final class LogsViewModel: ObservableObject {
     init(logBird: LogBird = LogBird.shared) {
         self.logBird = logBird
         subscribeToLogs()
+        logs = logBird.logs
     }
 
     var filteredLogs: [LBLog] {
@@ -31,6 +32,7 @@ final class LogsViewModel: ObservableObject {
 
     func clearLogs() {
         logBird.clearLogs()
+        logs = []
     }
 
     func exportData(format: LBExportFormat = .json) -> Data? {
@@ -40,10 +42,15 @@ final class LogsViewModel: ObservableObject {
     private func subscribeToLogs() {
         logsCancellable = logBird.logsPublisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] newLogs in
+            .sink { [weak self] log in
                 // Delivery is on the main queue, so the main actor hop is guaranteed.
                 MainActor.assumeIsolated {
-                    self?.logs = newLogs
+                    guard let self, !self.logs.contains(where: { $0.id == log.id }) else { return }
+                    self.logs.insert(log, at: 0)
+                    let overflow = self.logs.count - self.logBird.maxLogs
+                    if overflow > 0 {
+                        self.logs.removeLast(overflow)
+                    }
                 }
             }
     }

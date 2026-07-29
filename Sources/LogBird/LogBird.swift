@@ -29,8 +29,15 @@ extension LogBird {
         bundleIdentifier ?? "com.logbird.unknown"
     }
 
-    static public var logsPublisher: AnyPublisher<[LBLog], Never> {
+    /// Publishes each log entry as it is recorded. Earlier entries are not
+    /// replayed to new subscribers; use `logs` for the recorded history.
+    static public var logsPublisher: AnyPublisher<LBLog, Never> {
         shared.logsPublisher
+    }
+
+    /// The recorded history of `shared`, newest first.
+    static public var logs: [LBLog] {
+        shared.logs
     }
 
     /// The maximum number of entries kept in memory by `shared`.
@@ -97,8 +104,16 @@ extension LogBird {
 // MARK: Public Methods
 extension LogBird {
 
-    public var logsPublisher: AnyPublisher<[LBLog], Never> {
+    /// Publishes each log entry as it is recorded. Earlier entries are not
+    /// replayed to new subscribers; use `logs` for the recorded history.
+    public var logsPublisher: AnyPublisher<LBLog, Never> {
         manager.logsPublisher
+    }
+
+    /// The recorded history, newest first. The number of entries is capped at
+    /// `maxLogs`.
+    public var logs: [LBLog] {
+        manager.logsSnapshot
     }
 
     /// The maximum number of entries kept in memory. Once the limit is reached,
