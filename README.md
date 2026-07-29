@@ -96,7 +96,7 @@ The `log` method supports additional parameters for more detailed logs.
 #### Logging with extra messages:
 ```swift
 let extraMessages: [LBExtraMessage] = [
-    LBExtraMessage(title: "Title extra", message: "Message extra")
+    LBExtraMessage(key: "Extra key", value: "Extra value")
 ]
 LogBird.log("My Log",
     extraMessages: extraMessages)

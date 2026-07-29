@@ -79,9 +79,9 @@ private extension LBLogRowView {
 
     @ViewBuilder
     func ExtraMessages(_ extraMessages: [LBExtraMessage]) -> some View {
-        ForEach(extraMessages) { value in
-            LogSection(title: value.title) {
-                Text(value.message)
+        ForEach(extraMessages) { extraMessage in
+            LogSection(title: extraMessage.key) {
+                Text(extraMessage.value)
             }
         }
     }

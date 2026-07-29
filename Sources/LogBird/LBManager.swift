@@ -288,7 +288,7 @@ final class LBManager: @unchecked Sendable {
         // Extra Messages
         if let extraMessages = log.extraMessages {
             for extraMessage in extraMessages {
-                let message: String = "\(extraMessage.title):\n\(spacing)\(extraMessage.message)\n"
+                let message: String = "\(extraMessage.key):\n\(spacing)\(extraMessage.value)\n"
                 logMessage = "\(logMessage)\(message)"
             }
         }

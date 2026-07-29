@@ -90,13 +90,13 @@ public struct LBError: Codable, Hashable, Sendable {
 
 public struct LBExtraMessage: Codable, Identifiable, Sendable {
     public let id: UUID
-    public let title: String
-    public let message: String
+    public let key: String
+    public let value: String
 
-    public init(id: UUID = UUID(), title: String, message: String) {
+    public init(id: UUID = UUID(), key: String, value: String) {
         self.id = id
-        self.title = title
-        self.message = message
+        self.key = key
+        self.value = value
     }
 }
 
@@ -104,12 +104,12 @@ extension LBExtraMessage: Hashable {
     /// Equality and hashing are content-based; `id` only gives each instance a
     /// unique identity for list rendering.
     public static func == (lhs: LBExtraMessage, rhs: LBExtraMessage) -> Bool {
-        lhs.title == rhs.title && lhs.message == rhs.message
+        lhs.key == rhs.key && lhs.value == rhs.value
     }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(title)
-        hasher.combine(message)
+        hasher.combine(key)
+        hasher.combine(value)
     }
 }
 
