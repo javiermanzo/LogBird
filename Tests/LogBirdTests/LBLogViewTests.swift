@@ -1,6 +1,7 @@
 import XCTest
 @testable import LogBird
 
+@MainActor
 final class LBLogViewTests: XCTestCase {
 
     private func makeLog(message: String? = nil, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: LBError? = nil) -> LBLog {
@@ -33,7 +34,6 @@ final class LBLogViewTests: XCTestCase {
         _ = LBLogRowView(log: makeLog()).body
     }
 
-    @MainActor
     func testLogsViewEvaluatesContent() {
         _ = LBLogsView(logBird: LogBird(subsystem: "com.logbird.tests", category: "logs-view")).body
     }
