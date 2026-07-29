@@ -36,31 +36,34 @@ final class LogsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.logs.map(\.message), ["already-there"])
     }
 
-    func testViewModelKeepsEachEntryOnce() async throws {
-        let logBird = LogBird(subsystem: "com.logbird.tests", category: "dedupe")
-        logBird.log("before-init")
+    func testViewModelIgnoresDuplicateDeliveries() {
+        let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "dedupe"))
+        let log = makeLog(message: "same-entry", level: .info)
 
-        let viewModel = LogsViewModel(logBird: logBird)
+        viewModel.handle(.recorded(log))
+        viewModel.handle(.recorded(log))
 
-        // Allow any queued delivery for the seeded entry to arrive.
-        try await Task.sleep(nanoseconds: 300_000_000)
-
-        XCTAssertEqual(viewModel.logs.map(\.message), ["before-init"])
+        XCTAssertEqual(viewModel.logs.count, 1)
     }
 
-    func testViewModelCapsHistoryAtMaxLogs() async throws {
+    func testViewModelCapsHistoryAtMaxLogs() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "cap", maxLogs: 2)
         let viewModel = LogsViewModel(logBird: logBird)
 
-        logBird.log("one")
-        logBird.log("two")
-        logBird.log("three")
-
-        for _ in 0..<50 where viewModel.logs.count < 2 {
-            try await Task.sleep(nanoseconds: 100_000_000)
-        }
+        viewModel.handle(.recorded(makeLog(message: "one", level: .info)))
+        viewModel.handle(.recorded(makeLog(message: "two", level: .info)))
+        viewModel.handle(.recorded(makeLog(message: "three", level: .info)))
 
         XCTAssertEqual(viewModel.logs.map(\.message), ["three", "two"])
+    }
+
+    func testClearedEventEmptiesViewModel() {
+        let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "cleared-event"))
+        viewModel.handle(.recorded(makeLog(message: "to-be-cleared", level: .info)))
+
+        viewModel.handle(.cleared)
+
+        XCTAssertTrue(viewModel.logs.isEmpty)
     }
 
     func testClearLogsEmptiesViewModel() async throws {

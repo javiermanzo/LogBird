@@ -21,8 +21,8 @@ final class LBManager: @unchecked Sendable {
     private let source: LBSource
 
     private var logs: [LBLog] = []
-    private let logsSubject = PassthroughSubject<LBLog, Never>()
-    var logsPublisher: AnyPublisher<LBLog, Never> {
+    private let logsSubject = PassthroughSubject<LBLogEvent, Never>()
+    var logsPublisher: AnyPublisher<LBLogEvent, Never> {
         logsSubject.eraseToAnyPublisher()
     }
 
@@ -116,13 +116,14 @@ final class LBManager: @unchecked Sendable {
             self.logger.log(level: level.osLogType, "\(logMessage, privacy: .public)")
             self.logs.insert(log, at: 0)
             self.trimLogs()
-            self.publishQueue.async { self.logsSubject.send(log) }
+            self.publishQueue.async { self.logsSubject.send(.recorded(log)) }
         }
     }
 
     func clearLogs() {
         dispatchQueue.sync {
             self.logs = []
+            self.publishQueue.async { self.logsSubject.send(.cleared) }
         }
     }
 

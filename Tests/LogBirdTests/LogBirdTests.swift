@@ -11,25 +11,6 @@ final class LogBirdTests: XCTestCase {
         // https://developer.apple.com/documentation/xctest/defining_test_cases_and_test_methods
     }
 
-    /// Collects published entries until `expectedCount` arrive and returns them
-    /// in publish order. Publishing is asynchronous, so tests must wait for
-    /// delivery instead of reading the stream right away.
-    private func waitForPublishedLogs(of logBird: LogBird, count expectedCount: Int, timeout: TimeInterval = 5) -> [LBLog] {
-        let expectation = expectation(description: "\(expectedCount) logs published")
-        var collected: [LBLog] = []
-        var fulfilled = false
-        let cancellable = logBird.logsPublisher.sink { log in
-            collected.append(log)
-            if !fulfilled, collected.count >= expectedCount {
-                fulfilled = true
-                expectation.fulfill()
-            }
-        }
-        wait(for: [expectation], timeout: timeout)
-        cancellable.cancel()
-        return collected
-    }
-
     /// 1.000 logs across 10 concurrent tasks must all be preserved and published.
     /// Intended to run with Thread Sanitizer enabled.
     func testConcurrentLoggingPreservesAllEntries() async {
@@ -42,7 +23,8 @@ final class LogBirdTests: XCTestCase {
         let publishedExpectation = expectation(description: "all logs published")
         var published: [LBLog] = []
         published.reserveCapacity(total)
-        let cancellable = logBird.logsPublisher.sink { log in
+        let cancellable = logBird.logsPublisher.sink { event in
+            guard case .recorded(let log) = event else { return }
             published.append(log)
             if published.count == total {
                 publishedExpectation.fulfill()
@@ -73,7 +55,8 @@ final class LogBirdTests: XCTestCase {
 
         let expectation = expectation(description: "logs published in order")
         var published: [LBLog] = []
-        let cancellable = logBird.logsPublisher.sink { log in
+        let cancellable = logBird.logsPublisher.sink { event in
+            guard case .recorded(let log) = event else { return }
             published.append(log)
             if published.count == 3 {
                 expectation.fulfill()
@@ -90,6 +73,71 @@ final class LogBirdTests: XCTestCase {
         XCTAssertEqual(logBird.logs.map(\.message), ["third", "second", "first"])
     }
 
+    /// Events published before a subscription are not replayed: a subscriber
+    /// that attaches later only receives what is recorded afterwards.
+    func testLateSubscriberReceivesOnlyNewEvents() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "replay")
+
+        // Drain the first entry's publication through an early subscriber so
+        // nothing is left queued when the late subscriber attaches.
+        let earlyExpectation = expectation(description: "early subscriber receives first entry")
+        let earlyCancellable = logBird.logsPublisher.sink { _ in
+            earlyExpectation.fulfill()
+        }
+        logBird.log("before-late-subscribe")
+        wait(for: [earlyExpectation], timeout: 5)
+        earlyCancellable.cancel()
+
+        let lateExpectation = expectation(description: "late subscriber receives new entry")
+        var received: [LBLogEvent] = []
+        let lateCancellable = logBird.logsPublisher.sink { event in
+            received.append(event)
+            lateExpectation.fulfill()
+        }
+
+        logBird.log("after-late-subscribe")
+
+        wait(for: [lateExpectation], timeout: 5)
+        lateCancellable.cancel()
+        XCTAssertEqual(received.count, 1)
+        guard case .recorded(let log) = received.first else {
+            return XCTFail("Expected a recorded event, got \(String(describing: received.first))")
+        }
+        XCTAssertEqual(log.message, "after-late-subscribe")
+    }
+
+    /// `clearLogs()` empties the history immediately and notifies subscribers.
+    func testClearLogsEmptiesHistory() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "clear")
+
+        let expectation = expectation(description: "clear event published")
+        var events: [LBLogEvent] = []
+        let cancellable = logBird.logsPublisher.sink { event in
+            events.append(event)
+            if event == .cleared {
+                expectation.fulfill()
+            }
+        }
+
+        logBird.log("first")
+        logBird.log("second")
+        XCTAssertEqual(logBird.logs.count, 2)
+
+        logBird.clearLogs()
+        XCTAssertTrue(logBird.logs.isEmpty)
+
+        wait(for: [expectation], timeout: 5)
+        cancellable.cancel()
+
+        let recordedMessages = events.compactMap { event -> String? in
+            guard case .recorded(let log) = event else { return nil }
+            return log.message
+        }
+        XCTAssertEqual(recordedMessages, ["first", "second"])
+        XCTAssertEqual(events.last, .cleared)
+        XCTAssertEqual(events.count, 3)
+    }
+
     /// `setIdentifier` applies synchronously, so the value is visible to the
     /// very next `log(...)` call.
     func testSetIdentifierIsImmediatelyVisible() {
@@ -103,18 +151,6 @@ final class LogBirdTests: XCTestCase {
 
         logBird.setIdentifier(nil)
         XCTAssertNil(logBird.currentIdentifier)
-    }
-
-    /// `clearLogs()` must empty the history immediately.
-    func testClearLogsEmptiesHistory() {
-        let logBird = LogBird(subsystem: "com.logbird.tests", category: "clear")
-
-        logBird.log("first")
-        logBird.log("second")
-        XCTAssertEqual(logBird.logs.count, 2)
-
-        logBird.clearLogs()
-        XCTAssertTrue(logBird.logs.isEmpty)
     }
 
     /// The shared instance needs a stable subsystem even where the host bundle

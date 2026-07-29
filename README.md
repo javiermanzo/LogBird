@@ -123,7 +123,7 @@ LogBird.log("Log Error",
 ```
 
 ### Combine Support
-React to new logs in real time with Combine. `logsPublisher` emits each entry as it is recorded:
+React to log history events in real time with Combine. `logsPublisher` emits an `LBLogEvent` for each recorded entry and whenever the history is cleared:
 
 ```swift
 import Combine
@@ -134,8 +134,13 @@ let logBird = LogBird(subsystem: "com.example.myapp", category: "UI")
 
 LogBird.logsPublisher
     .receive(on: DispatchQueue.main)
-    .sink { [weak self] newLog in
-        self?.logs.insert(newLog, at: 0)
+    .sink { [weak self] event in
+        switch event {
+        case .recorded(let newLog):
+            self?.logs.insert(newLog, at: 0)
+        case .cleared:
+            self?.logs = []
+        }
     }
     .store(in: &subscribers)
 ```
@@ -156,7 +161,7 @@ struct ContentView: View {
 ```
 
 ### Clearing Logs
-Empty the in-memory log history at any time (e.g. after a logout or session reset):
+Empty the in-memory log history at any time (e.g. after a logout or session reset). Subscribers of `logsPublisher` receive a `cleared` event:
 
 ```swift
 LogBird.clearLogs()
@@ -166,9 +171,9 @@ customLogger.clearLogs()
 
 ## How It Works
 
-- **Storage**: every log is kept in an in-memory history (newest first). The history is unbounded, so call `clearLogs()` when you no longer need it.
+- **Storage**: every log is kept in an in-memory history (newest first) capped at `maxLogs` entries. The history is readable synchronously via `logs`; call `clearLogs()` to empty it.
 - **Console output**: under the hood, each entry is also forwarded to `OSLog` (`os.Logger`), so logs are visible in Console.app and via `log stream` under your subsystem and category (pass `--debug` to `log stream` to include debug-level entries).
-- **Combine**: `logsPublisher` emits each new entry as it is recorded; it does not replay the existing history to new subscribers. Read `logs` for a synchronous snapshot of the recorded history.
+- **Combine**: `logsPublisher` emits an `LBLogEvent` for each new entry (`recorded`) and every `clearLogs()` call (`cleared`); earlier events are not replayed to new subscribers. Read `logs` for a synchronous snapshot of the recorded history.
 - **SwiftUI**: `LBLogsView` observes `logsPublisher` through an internal `ObservableObject` view model and re-renders on each new entry.
 - **Threading**: `LogBird` is safe to call from any thread. Internal state is protected by a serial dispatch queue, and publishing happens on a separate queue so subscriber callbacks never run while the internal lock is held.
 

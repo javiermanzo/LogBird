@@ -42,17 +42,26 @@ final class LogsViewModel: ObservableObject {
     private func subscribeToLogs() {
         logsCancellable = logBird.logsPublisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] log in
+            .sink { [weak self] event in
                 // Delivery is on the main queue, so the main actor hop is guaranteed.
                 MainActor.assumeIsolated {
-                    guard let self, !self.logs.contains(where: { $0.id == log.id }) else { return }
-                    self.logs.insert(log, at: 0)
-                    let overflow = self.logs.count - self.logBird.maxLogs
-                    if overflow > 0 {
-                        self.logs.removeLast(overflow)
-                    }
+                    self?.handle(event)
                 }
             }
+    }
+
+    func handle(_ event: LBLogEvent) {
+        switch event {
+        case .recorded(let log):
+            guard !logs.contains(where: { $0.id == log.id }) else { return }
+            logs.insert(log, at: 0)
+            let overflow = logs.count - logBird.maxLogs
+            if overflow > 0 {
+                logs.removeLast(overflow)
+            }
+        case .cleared:
+            logs = []
+        }
     }
 
     private func matchesLevelFilter(_ log: LBLog) -> Bool {

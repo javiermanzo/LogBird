@@ -29,9 +29,10 @@ extension LogBird {
         bundleIdentifier ?? "com.logbird.unknown"
     }
 
-    /// Publishes each log entry as it is recorded. Earlier entries are not
+    /// Publishes history events as they happen: `recorded` for each new entry
+    /// and `cleared` when the history is emptied. Earlier events are not
     /// replayed to new subscribers; use `logs` for the recorded history.
-    static public var logsPublisher: AnyPublisher<LBLog, Never> {
+    static public var logsPublisher: AnyPublisher<LBLogEvent, Never> {
         shared.logsPublisher
     }
 
@@ -88,6 +89,7 @@ extension LogBird {
         shared.log(message, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 
+    /// Empties the recorded history. Subscribers receive a `cleared` event.
     static public func clearLogs() {
         shared.clearLogs()
     }
@@ -104,9 +106,10 @@ extension LogBird {
 // MARK: Public Methods
 extension LogBird {
 
-    /// Publishes each log entry as it is recorded. Earlier entries are not
+    /// Publishes history events as they happen: `recorded` for each new entry
+    /// and `cleared` when the history is emptied. Earlier events are not
     /// replayed to new subscribers; use `logs` for the recorded history.
-    public var logsPublisher: AnyPublisher<LBLog, Never> {
+    public var logsPublisher: AnyPublisher<LBLogEvent, Never> {
         manager.logsPublisher
     }
 
@@ -160,6 +163,7 @@ extension LogBird {
         manager.log(message.value, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 
+    /// Empties the recorded history. Subscribers receive a `cleared` event.
     public func clearLogs() {
         manager.clearLogs()
     }
