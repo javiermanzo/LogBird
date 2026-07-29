@@ -36,7 +36,7 @@ extension LogBird {
         shared.logsPublisher
     }
 
-    /// The recorded history of `shared`, newest first.
+    /// The recorded history of `shared`, in recording order (oldest first).
     static public var logs: [LBLog] {
         shared.logs
     }
@@ -115,8 +115,8 @@ extension LogBird {
         manager.logsPublisher
     }
 
-    /// The recorded history, newest first. The number of entries is capped at
-    /// `maxLogs`.
+    /// The recorded history, in recording order (oldest first). The number of
+    /// entries is capped at `maxLogs`.
     public var logs: [LBLog] {
         manager.logsSnapshot
     }
