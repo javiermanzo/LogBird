@@ -4,10 +4,11 @@ import XCTest
 @MainActor
 final class LogsViewModelTests: XCTestCase {
 
-    private func makeLog(message: String?, level: LBLogLevel, file: String = "LogBird/LBManager.swift", additionalInfo: [String: LBValue]? = nil, error: LBError? = nil) -> LBLog {
+    private func makeLog(message: String?, level: LBLogLevel, file: String = "LogBird/LBManager.swift", extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: LBError? = nil) -> LBLog {
         LBLog(
             level: level,
             message: message,
+            extraMessages: extraMessages,
             additionalInfo: additionalInfo,
             error: error,
             createdAt: Date().timeIntervalSince1970,
@@ -29,13 +30,17 @@ final class LogsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.logs.first?.message, "viewmodel-publishes")
     }
 
-    func testViewModelSeedsExistingHistory() {
+    func testViewModelSeedsExistingHistory() throws {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "seed")
         logBird.log("already-there")
 
         let viewModel = LogsViewModel(logBird: logBird)
 
         XCTAssertEqual(viewModel.logs.map(\.message), ["already-there"])
+
+        // A redelivery of an entry that is already seeded is not duplicated.
+        viewModel.handle(.recorded(try XCTUnwrap(logBird.logs.first)))
+        XCTAssertEqual(viewModel.logs.count, 1)
     }
 
     func testViewModelIgnoresDuplicateDeliveries() {
@@ -162,6 +167,20 @@ final class LogsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.filteredLogs.first?.message, "Network request finished")
     }
 
+    func testSearchMatchesExtraMessages() {
+        let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "search-extra"))
+        viewModel.logs = [
+            makeLog(message: "one", level: .info, extraMessages: [LBExtraMessage(key: "latency", value: "240ms")]),
+            makeLog(message: "two", level: .info)
+        ]
+
+        viewModel.searchText = "latency"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+
+        viewModel.searchText = "240ms"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+    }
+
     func testSearchMatchesAdditionalInfoKeysAndValues() {
         let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "search-info"))
         viewModel.logs = [
@@ -191,6 +210,20 @@ final class LogsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
 
         viewModel.searchText = "endpoint"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+
+        viewModel.searchText = "unauthorized"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+    }
+
+    func testSearchMatchesLocationFile() {
+        let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "search-location"))
+        viewModel.logs = [
+            makeLog(message: "one", level: .info, file: "LogBird/NetworkMonitor.swift"),
+            makeLog(message: "two", level: .info)
+        ]
+
+        viewModel.searchText = "networkmonitor"
         XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
     }
 
@@ -227,12 +260,5 @@ final class LogsViewModelTests: XCTestCase {
         ]
 
         XCTAssertThrowsError(try viewModel.exportData())
-    }
-
-    func testLocationFileNameStripsModulePath() {
-        let location = LBLocation(file: "LogBird/LBManager.swift", function: "log(_:)", line: 42)
-
-        XCTAssertEqual(location.fileName, "LBManager.swift")
-        XCTAssertEqual(LBLocation(file: "NoSeparator.swift", function: "f()", line: 1).fileName, "NoSeparator.swift")
     }
 }

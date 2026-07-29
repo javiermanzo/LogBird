@@ -96,6 +96,15 @@ final class LBRedactionTests: XCTestCase {
         XCTAssertEqual(info?["token"], .string("abc123"))
     }
 
+    func testBlankSensitiveKeysAreIgnored() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-blank-keys")
+        logBird.sensitiveKeys = ["", "  "]
+
+        logBird.log("raw", additionalInfo: ["token": .string("abc123")])
+
+        XCTAssertEqual(logBird.logs.first?.additionalInfo?["token"], .string("abc123"))
+    }
+
     func testSensitiveKeyMatchingIgnoresSeparators() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-separators")
 

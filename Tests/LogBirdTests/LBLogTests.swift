@@ -84,6 +84,14 @@ final class LBLogTests: XCTestCase {
         XCTAssertEqual(LBValue.dictionary(["b": .int(2), "a": .int(1)]).description, "{a: 1, b: 2}")
     }
 
+    func testLBValueSingleValueDescriptions() {
+        XCTAssertEqual(LBValue.string("hello").description, "hello")
+        XCTAssertEqual(LBValue.int(12).description, "12")
+        XCTAssertEqual(LBValue.double(1.5).description, "1.5")
+        XCTAssertEqual(LBValue.bool(true).description, "true")
+        XCTAssertEqual(LBValue.url(URL(string: "https://example.com")!).description, "https://example.com")
+    }
+
     func testLBValueDecodeFailsForUnsupportedPayloads() {
         XCTAssertThrowsError(try JSONDecoder().decode(LBValue.self, from: Data("null".utf8)))
     }
@@ -129,6 +137,13 @@ final class LBLogTests: XCTestCase {
         let decoded = try JSONDecoder().decode(LBLog.self, from: Data(json.utf8))
 
         XCTAssertEqual(decoded, log)
+    }
+
+    func testLocationFileNameStripsModulePath() {
+        let location = LBLocation(file: "LogBird/LBManager.swift", function: "log(_:)", line: 42)
+
+        XCTAssertEqual(location.fileName, "LBManager.swift")
+        XCTAssertEqual(LBLocation(file: "NoSeparator.swift", function: "f()", line: 1).fileName, "NoSeparator.swift")
     }
 
     func testPrettyJSONHasSortedKeys() throws {
