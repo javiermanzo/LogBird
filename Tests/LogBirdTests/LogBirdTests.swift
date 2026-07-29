@@ -70,7 +70,7 @@ final class LogBirdTests: XCTestCase {
         wait(for: [expectation], timeout: 5)
         cancellable.cancel()
         XCTAssertEqual(published.map(\.message), ["first", "second", "third"])
-        XCTAssertEqual(logBird.logs.map(\.message), ["third", "second", "first"])
+        XCTAssertEqual(logBird.logs.map(\.message), ["first", "second", "third"])
     }
 
     /// Events published before a subscription are not replayed: a subscriber

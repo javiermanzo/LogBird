@@ -11,8 +11,8 @@ final class LBManagerTests: XCTestCase {
         }
 
         XCTAssertEqual(logBird.logs.count, 100)
-        XCTAssertEqual(logBird.logs.first?.message, "log-999")
-        XCTAssertEqual(logBird.logs.last?.message, "log-900")
+        XCTAssertEqual(logBird.logs.first?.message, "log-900")
+        XCTAssertEqual(logBird.logs.last?.message, "log-999")
     }
 
     func testMaxLogsSetterTrimsExistingHistory() {
@@ -26,8 +26,8 @@ final class LBManagerTests: XCTestCase {
         logBird.maxLogs = 10
 
         XCTAssertEqual(logBird.logs.count, 10)
-        XCTAssertEqual(logBird.logs.first?.message, "log-49")
-        XCTAssertEqual(logBird.logs.last?.message, "log-40")
+        XCTAssertEqual(logBird.logs.first?.message, "log-40")
+        XCTAssertEqual(logBird.logs.last?.message, "log-49")
     }
 
     func testMaxLogsZeroDisablesRetention() {

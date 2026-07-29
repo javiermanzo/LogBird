@@ -26,7 +26,8 @@ final class LBManager: @unchecked Sendable {
         logsSubject.eraseToAnyPublisher()
     }
 
-    /// The recorded history, newest first. Reading is serialized with mutations.
+    /// The recorded history, in recording order (oldest first). Reading is
+    /// serialized with mutations.
     var logsSnapshot: [LBLog] {
         dispatchQueue.sync { logs }
     }
@@ -116,7 +117,7 @@ final class LBManager: @unchecked Sendable {
         dispatchQueue.sync {
             let logMessage = Self.formattedMessage(for: log, identifier: self.identifier)
             self.logger.log(level: level.osLogType, "\(logMessage, privacy: .public)")
-            self.logs.insert(log, at: 0)
+            self.logs.append(log)
             self.trimLogs()
             self.publishQueue.async { self.logsSubject.send(.recorded(log)) }
         }
@@ -141,7 +142,7 @@ final class LBManager: @unchecked Sendable {
     /// Keeps only the newest `storedMaxLogs` entries. Must be called on `dispatchQueue`.
     private func trimLogs() {
         if logs.count > storedMaxLogs {
-            logs.removeLast(logs.count - storedMaxLogs)
+            logs.removeFirst(logs.count - storedMaxLogs)
         }
     }
 

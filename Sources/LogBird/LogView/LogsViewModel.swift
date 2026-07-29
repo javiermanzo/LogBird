@@ -22,7 +22,7 @@ final class LogsViewModel: ObservableObject {
     init(logBird: LogBird = LogBird.shared) {
         self.logBird = logBird
         subscribeToLogs()
-        logs = logBird.logs
+        logs = Array(logBird.logs.reversed())
         logIDs = Set(logs.map(\.id))
     }
 
