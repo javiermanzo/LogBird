@@ -33,6 +33,8 @@ final class LBManager: @unchecked Sendable {
     }()
 
     private var storedMaxLogs: Int
+    private var storedRedactSensitiveFields: Bool = true
+    private var storedSensitiveKeys: [String] = LBRedactor.defaultSensitiveKeys
 
     /// The maximum number of entries kept in memory. Once the limit is reached,
     /// the oldest entries are discarded. Values below 1 are treated as 1.
@@ -57,6 +59,19 @@ final class LBManager: @unchecked Sendable {
         dispatchQueue.sync { identifier }
     }
 
+    /// Whether values under sensitive keys are redacted before a log is stored.
+    var redactSensitiveFields: Bool {
+        get { dispatchQueue.sync { storedRedactSensitiveFields } }
+        set { dispatchQueue.sync { storedRedactSensitiveFields = newValue } }
+    }
+
+    /// The keys considered sensitive when redacting. See `LBRedactor` for the
+    /// matching rules.
+    var sensitiveKeys: [String] {
+        get { dispatchQueue.sync { storedSensitiveKeys } }
+        set { dispatchQueue.sync { storedSensitiveKeys = newValue } }
+    }
+
     init(subsystem: String, category: String, maxLogs: Int = 1000) {
         let source = LBSource(subsystem: subsystem, category: category)
         self.logger = Logger(subsystem: source.subsystem, category: source.category)
@@ -79,6 +94,11 @@ final class LBManager: @unchecked Sendable {
              function: String = #function,
              line: Int = #line) {
 
+        // Snapshot the redaction config so `buildLogData` stays off the state queue.
+        let redactor = dispatchQueue.sync {
+            LBRedactor(isEnabled: self.storedRedactSensitiveFields, sensitiveKeys: self.storedSensitiveKeys)
+        }
+
         // `buildLogData` only reads immutable `source` and the supplied parameters.
         let log = buildLogData(message: message,
                                extraMessages: extraMessages,
@@ -87,7 +107,8 @@ final class LBManager: @unchecked Sendable {
                                level: level,
                                file: file,
                                function: function,
-                               line: line)
+                               line: line,
+                               redactor: redactor)
 
         // Serialize identifier read and log mutation to keep state consistent.
         dispatchQueue.sync {
@@ -130,15 +151,16 @@ final class LBManager: @unchecked Sendable {
                               level: LBLogLevel,
                               file: String,
                               function: String,
-                              line: Int) -> LBLog {
+                              line: Int,
+                              redactor: LBRedactor) -> LBLog {
 
-        let errorData: LBError? = errorToLBError(error) ?? nil
+        let errorData: LBError? = errorToLBError(error, redactor: redactor) ?? nil
 
         let log = LBLog(
             level: level,
             message: message,
             extraMessages: extraMessages,
-            additionalInfo: additionalInfo,
+            additionalInfo: redactor.redact(additionalInfo),
             error: errorData,
             createdAt: Date().timeIntervalSince1970,
             location: LBLocation(file: file, function: function, line: line),
@@ -148,7 +170,7 @@ final class LBManager: @unchecked Sendable {
         return log
     }
 
-    private func errorToLBError(_ error: Error?) -> LBError? {
+    private func errorToLBError(_ error: Error?, redactor: LBRedactor) -> LBError? {
         guard let error else { return nil }
         let nsError = error as NSError
 
@@ -172,7 +194,7 @@ final class LBManager: @unchecked Sendable {
             code: nsError.code,
             type: String(describing: Swift.type(of: error)),
             localizedDescription: nsError.localizedDescription,
-            userInfo: userInfoString
+            userInfo: redactor.redact(userInfoString)
         )
     }
 

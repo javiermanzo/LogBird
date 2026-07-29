@@ -31,6 +31,25 @@ extension LogBird {
         set { shared.maxLogs = newValue }
     }
 
+    /// Keys matched by default when redacting sensitive fields.
+    static public let defaultSensitiveKeys: [String] = LBRedactor.defaultSensitiveKeys
+
+    /// Whether values under sensitive keys in `additionalInfo` and
+    /// `error.userInfo` are replaced by `<redacted>` before a log is stored.
+    /// Default: `true`.
+    static public var redactSensitiveFields: Bool {
+        get { shared.redactSensitiveFields }
+        set { shared.redactSensitiveFields = newValue }
+    }
+
+    /// The keys considered sensitive when redacting. A key is sensitive when it
+    /// contains any of these values; matching is case-insensitive, so
+    /// `accessToken` matches `token`.
+    static public var sensitiveKeys: [String] {
+        get { shared.sensitiveKeys }
+        set { shared.sensitiveKeys = newValue }
+    }
+
     static public func setIdentifier(_ identifier: String?) {
         shared.setIdentifier(identifier)
     }
@@ -65,6 +84,22 @@ extension LogBird {
     public var maxLogs: Int {
         get { manager.maxLogs }
         set { manager.maxLogs = newValue }
+    }
+
+    /// Whether values under sensitive keys in `additionalInfo` and
+    /// `error.userInfo` are replaced by `<redacted>` before a log is stored.
+    /// Default: `true`.
+    public var redactSensitiveFields: Bool {
+        get { manager.redactSensitiveFields }
+        set { manager.redactSensitiveFields = newValue }
+    }
+
+    /// The keys considered sensitive when redacting. A key is sensitive when it
+    /// contains any of these values; matching is case-insensitive, so
+    /// `accessToken` matches `token`.
+    public var sensitiveKeys: [String] {
+        get { manager.sensitiveKeys }
+        set { manager.sensitiveKeys = newValue }
     }
 
     public func setIdentifier(_ value: String?) {
