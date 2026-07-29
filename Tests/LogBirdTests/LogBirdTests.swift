@@ -17,9 +17,11 @@ final class LogBirdTests: XCTestCase {
     private func waitForLogs(of logBird: LogBird, count expectedCount: Int, timeout: TimeInterval = 5) -> [LBLog] {
         let expectation = expectation(description: "logs reach \(expectedCount)")
         var latest: [LBLog] = []
+        var fulfilled = false
         let cancellable = logBird.logsPublisher.sink { logs in
             latest = logs
-            if logs.count >= expectedCount {
+            if !fulfilled, logs.count >= expectedCount {
+                fulfilled = true
                 expectation.fulfill()
             }
         }
@@ -70,11 +72,19 @@ final class LogBirdTests: XCTestCase {
         logBird.log("second")
         XCTAssertEqual(waitForLogs(of: logBird, count: 2).count, 2)
 
+        // The subject replays its current value on subscription, which can be an
+        // empty snapshot; only fulfill once a non-empty history has been cleared.
         let expectation = expectation(description: "logs are cleared")
         var latest: [LBLog]? = nil
+        var sawLogs = false
+        var fulfilled = false
         let cancellable = logBird.logsPublisher.sink { logs in
+            if !logs.isEmpty {
+                sawLogs = true
+            }
             latest = logs
-            if logs.isEmpty {
+            if !fulfilled, sawLogs, logs.isEmpty {
+                fulfilled = true
                 expectation.fulfill()
             }
         }
