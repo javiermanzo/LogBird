@@ -25,7 +25,7 @@ public struct LBLogsView: View {
     }
 
     public var body: some View {
-        if #available(iOS 16.0, macOS 13.0, *) {
+        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
             NavigationStack {
                 content
             }
@@ -46,9 +46,11 @@ public struct LBLogsView: View {
         .accessibilityHint("Displays the recorded log entries")
         .searchable(text: $viewModel.searchText, prompt: "Search logs")
         .navigationTitle("Logs")
+        #if os(iOS) || os(macOS)
         .toolbar {
             toolbarContent
         }
+        #endif
         #if os(iOS)
         .sheet(item: $exportFile) { file in
             LBActivityView(activityItems: [file.url])
@@ -56,6 +58,7 @@ public struct LBLogsView: View {
         #endif
     }
 
+    #if os(iOS) || os(macOS)
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
@@ -103,6 +106,7 @@ public struct LBLogsView: View {
         LBLogExport.presentSavePanel(data: data, format: format)
         #endif
     }
+    #endif
 }
 
 private extension LBExportFormat {
