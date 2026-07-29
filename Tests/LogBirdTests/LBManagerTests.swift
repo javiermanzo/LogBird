@@ -30,18 +30,48 @@ final class LBManagerTests: XCTestCase {
         XCTAssertEqual(logBird.logs.last?.message, "log-40")
     }
 
-    func testMaxLogsBelowOneIsClamped() {
-        let logBird = LogBird(subsystem: "com.logbird.tests", category: "maxlogs-clamp", maxLogs: 0)
-        XCTAssertEqual(logBird.maxLogs, 1)
-
-        logBird.maxLogs = -5
-        XCTAssertEqual(logBird.maxLogs, 1)
+    func testMaxLogsZeroDisablesRetention() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "maxlogs-zero", maxLogs: 0)
+        XCTAssertEqual(logBird.maxLogs, 0)
 
         logBird.log("first")
         logBird.log("second")
 
-        XCTAssertEqual(logBird.logs.count, 1)
-        XCTAssertEqual(logBird.logs.first?.message, "second")
+        XCTAssertTrue(logBird.logs.isEmpty)
+    }
+
+    func testMaxLogsZeroStillPublishesEvents() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "maxlogs-zero-events", maxLogs: 0)
+
+        let expectation = expectation(description: "entries published without retention")
+        var published: [LBLog] = []
+        let cancellable = logBird.logsPublisher.sink { event in
+            guard case .recorded(let log) = event else { return }
+            published.append(log)
+            if published.count == 2 {
+                expectation.fulfill()
+            }
+        }
+
+        logBird.log("first")
+        logBird.log("second")
+
+        wait(for: [expectation], timeout: 5)
+        cancellable.cancel()
+        XCTAssertEqual(published.map(\.message), ["first", "second"])
+        XCTAssertTrue(logBird.logs.isEmpty)
+    }
+
+    func testNegativeMaxLogsIsClampedToZero() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "maxlogs-negative")
+
+        logBird.maxLogs = -5
+
+        XCTAssertEqual(logBird.maxLogs, 0)
+
+        logBird.log("first")
+
+        XCTAssertTrue(logBird.logs.isEmpty)
     }
 
     func testLogWithoutMessage() {
