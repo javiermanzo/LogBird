@@ -70,8 +70,12 @@ public struct LBLogsView: View {
 
                 Divider()
 
-                Button {
-                    exportLogs()
+                Menu {
+                    ForEach(LBExportFormat.allCases, id: \.self) { format in
+                        Button(format.menuTitle) {
+                            exportLogs(format: format)
+                        }
+                    }
                 } label: {
                     Label("Export Logs", systemImage: "square.and.arrow.up")
                 }
@@ -89,15 +93,25 @@ public struct LBLogsView: View {
         }
     }
 
-    private func exportLogs() {
-        guard let data = viewModel.exportData() else { return }
+    private func exportLogs(format: LBExportFormat) {
+        guard let data = viewModel.exportData(format: format) else { return }
         #if os(iOS)
-        if let url = LBLogExport.writeTemporaryFile(data: data) {
+        if let url = LBLogExport.writeTemporaryFile(data: data, format: format) {
             exportFile = ExportFile(url: url)
         }
         #elseif os(macOS)
-        LBLogExport.presentSavePanel(data: data)
+        LBLogExport.presentSavePanel(data: data, format: format)
         #endif
+    }
+}
+
+private extension LBExportFormat {
+    var menuTitle: String {
+        switch self {
+        case .json: return "JSON"
+        case .jsonLines: return "JSON Lines"
+        case .plainText: return "Plain Text"
+        }
     }
 }
 

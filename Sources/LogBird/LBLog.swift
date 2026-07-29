@@ -7,23 +7,27 @@
 
 import Foundation
 
-public struct LBLog: Codable, Identifiable {
+/// A single recorded log entry.
+///
+/// Equality and hashing include `id`, so two entries are equal only when they
+/// represent the same recorded log.
+public struct LBLog: Codable, Identifiable, Hashable, Sendable {
     public let id: String
     public let level: LBLogLevel
     public let message: String?
     public let extraMessages: [LBExtraMessage]?
-    public let additionalInfo: [String: String]?
+    public let additionalInfo: [String: LBValue]?
     public let error: LBError?
     public let createdAt: Double
     public let location: LBLocation
     public let source: LBSource
 
-    public init(
+    init(
         id: String = UUID().uuidString,
         level: LBLogLevel,
         message: String? = nil,
         extraMessages: [LBExtraMessage]? = nil,
-        additionalInfo: [String: String]? = nil,
+        additionalInfo: [String: LBValue]? = nil,
         error: LBError? = nil,
         createdAt: Double,
         location: LBLocation,
@@ -41,22 +45,22 @@ public struct LBLog: Codable, Identifiable {
     }
 }
 
-public struct LBSource: Codable {
+public struct LBSource: Codable, Hashable, Sendable {
     public let subsystem: String
     public let category: String
 
-    public init(subsystem: String, category: String) {
+    init(subsystem: String, category: String) {
         self.subsystem = subsystem
         self.category = category
     }
 }
 
-public struct LBLocation: Codable {
+public struct LBLocation: Codable, Hashable, Sendable {
     public let file: String
     public let function: String
     public let line: Int
 
-    public init(file: String, function: String, line: Int) {
+    init(file: String, function: String, line: Int) {
         self.file = file
         self.function = function
         self.line = line
@@ -68,41 +72,57 @@ public struct LBLocation: Codable {
     }
 }
 
-public struct LBError: Codable {
+public struct LBError: Codable, Hashable, Sendable {
     public let domain: String
     public let code: Int
+    public let type: String
     public let localizedDescription: String
     public let userInfo: [String: String]?
 
-    public init(domain: String, code: Int, localizedDescription: String, userInfo: [String: String]? = nil) {
+    init(domain: String, code: Int, type: String, localizedDescription: String, userInfo: [String: String]? = nil) {
         self.domain = domain
         self.code = code
+        self.type = type
         self.localizedDescription = localizedDescription
         self.userInfo = userInfo
     }
 }
 
-public struct LBExtraMessage: Codable, Hashable {
+public struct LBExtraMessage: Codable, Identifiable, Sendable {
+    public let id: UUID
     public let title: String
     public let message: String
 
-    public init(title: String, message: String) {
+    public init(id: UUID = UUID(), title: String, message: String) {
+        self.id = id
         self.title = title
         self.message = message
     }
 }
 
-public extension LBLog {
-    func prettyJSON() -> String? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
+extension LBExtraMessage: Hashable {
+    /// Equality and hashing are content-based; `id` only gives each instance a
+    /// unique identity for list rendering.
+    public static func == (lhs: LBExtraMessage, rhs: LBExtraMessage) -> Bool {
+        lhs.title == rhs.title && lhs.message == rhs.message
+    }
 
-        do {
-            let jsonData = try encoder.encode(self)
-            return String(data: jsonData, encoding: .utf8) ?? ""
-        } catch {
-            print("Error encoding LBLog to JSON:", error)
-            return nil
-        }
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(title)
+        hasher.combine(message)
+    }
+}
+
+public extension LBLog {
+    private static let prettyJSONEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
+    }()
+
+    /// Returns a deterministic, pretty-printed JSON representation of the log.
+    func prettyJSON() throws -> String {
+        let data = try Self.prettyJSONEncoder.encode(self)
+        return String(decoding: data, as: UTF8.self)
     }
 }

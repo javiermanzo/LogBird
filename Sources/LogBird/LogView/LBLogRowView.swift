@@ -7,16 +7,16 @@
 
 import SwiftUI
 
-public struct LBLogRowView: View {
-    public let log: LBLog
+struct LBLogRowView: View {
+    let log: LBLog
 
-    public init(log: LBLog) {
+    init(log: LBLog) {
         self.log = log
     }
 
-    public var body: some View {
+    var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            let date = LBManager.dateFormatter.string(from: Date(timeIntervalSince1970: log.createdAt))
+            let date = LBManager.dateStyle.format(Date(timeIntervalSince1970: log.createdAt))
             Header(createdAt: date, level: log.level)
 
             if let message = log.message, !message.isEmpty {
@@ -79,7 +79,7 @@ private extension LBLogRowView {
 
     @ViewBuilder
     func ExtraMessages(_ extraMessages: [LBExtraMessage]) -> some View {
-        ForEach(extraMessages, id: \.self) { value in
+        ForEach(extraMessages) { value in
             LogSection(title: value.title) {
                 Text(value.message)
             }
@@ -87,11 +87,11 @@ private extension LBLogRowView {
     }
 
     @ViewBuilder
-    func AdditionalInfo(_ additionalInfo: [String: String]) -> some View {
+    func AdditionalInfo(_ additionalInfo: [String: LBValue]) -> some View {
         LogSection(title: "Additional Info") {
             ForEach(additionalInfo.keys.sorted(), id: \.self) { key in
                 if let value = additionalInfo[key] {
-                    InfoRow(label: "\(key):", value: value)
+                    InfoRow(label: "\(key):", value: value.description)
                 }
             }
         }
@@ -100,6 +100,8 @@ private extension LBLogRowView {
     @ViewBuilder
     func LogError(_ error: LBError) -> some View {
         LogSection(title: "Error") {
+            InfoRow(label: "Type:", value: error.type)
+
             InfoRow(label: "Domain:", value: error.domain)
 
             InfoRow(label: "Code:", value: "\(error.code)")
