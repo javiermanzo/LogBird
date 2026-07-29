@@ -82,12 +82,27 @@ final class LBManager: @unchecked Sendable {
         self.storedMaxLogs = max(0, maxLogs)
     }
 
+    /// Sets an optional identifier prepended to each OSLog line.
+    ///
+    /// - Parameter value: `String?` — identifier to prepend, or `nil` to clear.
     func setIdentifier(_ value: String?) {
         dispatchQueue.sync {
             self.identifier = value
         }
     }
 
+    /// Builds a log, forwards it to OSLog and records it (subject to `maxLogs`).
+    /// Subscribers receive a `.recorded` event on the publish queue.
+    ///
+    /// - Parameters:
+    ///   - message: `String?` — free-text message.
+    ///   - extraMessages: `[LBExtraMessage]?` — labeled strings.
+    ///   - additionalInfo: `[String: LBValue]?` — typed metadata.
+    ///   - error: `Error?` — error to capture.
+    ///   - level: `LBLogLevel` — severity.
+    ///   - file: `String` — source file.
+    ///   - function: `String` — source function.
+    ///   - line: `Int` — source line.
     func log(_ message: String? = nil,
              extraMessages: [LBExtraMessage]? = nil,
              additionalInfo: [String: LBValue]? = nil,
@@ -123,6 +138,7 @@ final class LBManager: @unchecked Sendable {
         }
     }
 
+    /// Empties the recorded history. Subscribers receive a `.cleared` event.
     func clearLogs() {
         dispatchQueue.sync {
             self.logs = []
@@ -130,11 +146,22 @@ final class LBManager: @unchecked Sendable {
         }
     }
 
+    /// Encodes the recorded history.
+    ///
+    /// - Parameter format: `LBExportFormat` — encoding to use.
+    /// - Throws: `EncodingError` if a log value cannot be encoded.
+    /// - Returns: `Data` containing the encoded history.
     func exportLogs(format: LBExportFormat) throws -> Data {
         let (logs, identifier) = dispatchQueue.sync { (self.logs, self.identifier) }
         return try LBLogExporter.data(for: logs, format: format, identifier: identifier)
     }
 
+    /// Encodes the recorded history and writes it to `url` atomically.
+    ///
+    /// - Parameters:
+    ///   - url: `URL` — destination file URL.
+    ///   - format: `LBExportFormat` — encoding to use.
+    /// - Throws: `EncodingError` if a value cannot be encoded, or the file-system error if writing fails.
     func writeLogs(to url: URL, format: LBExportFormat) throws {
         try exportLogs(format: format).write(to: url, options: .atomic)
     }
@@ -156,7 +183,7 @@ final class LBManager: @unchecked Sendable {
                               line: Int,
                               redactor: LBRedactor) -> LBLog {
 
-        let errorData: LBError? = errorToLBError(error, redactor: redactor) ?? nil
+        let errorData: LBError? = errorToLBError(error, redactor: redactor)
 
         let log = LBLog(
             level: level,
@@ -266,6 +293,12 @@ final class LBManager: @unchecked Sendable {
         }
     }
 
+    /// Builds the human-readable block forwarded to OSLog.
+    ///
+    /// - Parameters:
+    ///   - log: `LBLog` — entry to format.
+    ///   - identifier: `String?` — optional identifier prepended to the header.
+    /// - Returns: `String` with the formatted block.
     static func formattedMessage(for log: LBLog, identifier: String?) -> String {
         var logMessage: String = ""
         let spacing: String = "    "

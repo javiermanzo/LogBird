@@ -38,12 +38,21 @@ public struct LBLogMessage: ExpressibleByStringInterpolation, Hashable, Sendable
     }
 }
 
+// MARK: CustomStringConvertible
 extension LBLogMessage: CustomStringConvertible {
+
     public var description: String { value }
 }
 
-extension LBLogMessage {
-    public struct StringInterpolation: StringInterpolationProtocol {
+// MARK: StringInterpolation
+public extension LBLogMessage {
+
+    /// String interpolation backing `LBLogMessage`.
+    ///
+    /// Interpolations are public by default; the `appendInterpolation(_:privacy:)`
+    /// overload swaps a `.private` value for the redaction placeholder while
+    /// the message is built.
+    struct StringInterpolation: StringInterpolationProtocol {
         var output: String
 
         public init(literalCapacity: Int, interpolationCount: Int) {
@@ -55,10 +64,17 @@ extension LBLogMessage {
             output.append(literal)
         }
 
+        /// Appends a public interpolation, rendered with `String(describing:)`.
         public mutating func appendInterpolation<T>(_ value: T) {
             output.append(String(describing: value))
         }
 
+        /// Appends an interpolation whose visibility is controlled by `privacy`.
+        /// A `.private` value is replaced by the redaction placeholder.
+        ///
+        /// - Parameters:
+        ///   - value: `T` — value to interpolate.
+        ///   - privacy: `LBPrivacy` — `.public` to render, `.private` to redact.
         public mutating func appendInterpolation<T>(_ value: T, privacy: LBPrivacy) {
             switch privacy {
             case .public:

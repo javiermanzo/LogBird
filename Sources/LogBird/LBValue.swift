@@ -18,16 +18,25 @@ import Foundation
 /// as `.int`. Encoding a non-finite double (NaN or infinity) throws, as with
 /// any `JSONEncoder`.
 public enum LBValue: Sendable {
+    /// A string value.
     case string(String)
+    /// An integer value.
     case int(Int)
+    /// A floating-point value.
     case double(Double)
+    /// A Boolean value.
     case bool(Bool)
+    /// A URL value, encoded as its absolute string.
     case url(URL)
+    /// An array of nested values.
     indirect case array([LBValue])
+    /// A dictionary of nested values keyed by name.
     indirect case dictionary([String: LBValue])
 }
 
+// MARK: Codable
 extension LBValue: Codable {
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let bool = try? container.decode(Bool.self) {
@@ -61,9 +70,12 @@ extension LBValue: Codable {
     }
 }
 
+// MARK: Hashable
 extension LBValue: Hashable {}
 
+// MARK: CustomStringConvertible
 extension LBValue: CustomStringConvertible {
+
     public var description: String {
         switch self {
         case .string(let string): return string
@@ -79,25 +91,33 @@ extension LBValue: CustomStringConvertible {
     }
 }
 
+// MARK: ExpressibleByStringLiteral
 extension LBValue: ExpressibleByStringLiteral {
+
     public init(stringLiteral value: String) {
         self = .string(value)
     }
 }
 
+// MARK: ExpressibleByIntegerLiteral
 extension LBValue: ExpressibleByIntegerLiteral {
+
     public init(integerLiteral value: Int) {
         self = .int(value)
     }
 }
 
+// MARK: ExpressibleByFloatLiteral
 extension LBValue: ExpressibleByFloatLiteral {
+
     public init(floatLiteral value: Double) {
         self = .double(value)
     }
 }
 
+// MARK: ExpressibleByBooleanLiteral
 extension LBValue: ExpressibleByBooleanLiteral {
+
     public init(booleanLiteral value: Bool) {
         self = .bool(value)
     }
