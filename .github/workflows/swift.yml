@@ -15,3 +15,17 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
+
+  build-platforms:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        destination:
+          - 'generic/platform=iOS'
+          - 'generic/platform=tvOS'
+          - 'generic/platform=watchOS'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build for ${{ matrix.destination }}
+        run: xcodebuild -scheme LogBird -destination '${{ matrix.destination }}' build CODE_SIGNING_ALLOWED=NO
