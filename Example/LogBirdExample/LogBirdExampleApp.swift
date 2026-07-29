@@ -12,6 +12,8 @@ import LogBird
 struct LogBirdExampleApp: App {
 
     init() {
+        LogBird.clearLogs()
+
         let extraMessages: [LBExtraMessage] = [
             LBExtraMessage(title: "Title Extra", message: "Message extra")
         ]
