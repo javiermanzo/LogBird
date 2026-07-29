@@ -22,7 +22,7 @@ public struct LBLog: Codable, Identifiable, Hashable, Sendable {
     public let location: LBLocation
     public let source: LBSource
 
-    public init(
+    init(
         id: String = UUID().uuidString,
         level: LBLogLevel,
         message: String? = nil,
@@ -49,7 +49,7 @@ public struct LBSource: Codable, Hashable, Sendable {
     public let subsystem: String
     public let category: String
 
-    public init(subsystem: String, category: String) {
+    init(subsystem: String, category: String) {
         self.subsystem = subsystem
         self.category = category
     }
@@ -60,7 +60,7 @@ public struct LBLocation: Codable, Hashable, Sendable {
     public let function: String
     public let line: Int
 
-    public init(file: String, function: String, line: Int) {
+    init(file: String, function: String, line: Int) {
         self.file = file
         self.function = function
         self.line = line
@@ -79,7 +79,7 @@ public struct LBError: Codable, Hashable, Sendable {
     public let localizedDescription: String
     public let userInfo: [String: String]?
 
-    public init(domain: String, code: Int, type: String, localizedDescription: String, userInfo: [String: String]? = nil) {
+    init(domain: String, code: Int, type: String, localizedDescription: String, userInfo: [String: String]? = nil) {
         self.domain = domain
         self.code = code
         self.type = type
