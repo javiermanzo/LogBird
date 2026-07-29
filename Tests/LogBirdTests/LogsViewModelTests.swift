@@ -4,10 +4,12 @@ import XCTest
 @MainActor
 final class LogsViewModelTests: XCTestCase {
 
-    private func makeLog(message: String?, level: LBLogLevel, file: String = "LogBird/LBManager.swift") -> LBLog {
+    private func makeLog(message: String?, level: LBLogLevel, file: String = "LogBird/LBManager.swift", additionalInfo: [String: LBValue]? = nil, error: LBError? = nil) -> LBLog {
         LBLog(
             level: level,
             message: message,
+            additionalInfo: additionalInfo,
+            error: error,
             createdAt: Date().timeIntervalSince1970,
             location: LBLocation(file: file, function: "log(_:)", line: 42),
             source: LBSource(subsystem: "com.logbird.tests", category: "viewmodel")
@@ -55,6 +57,57 @@ final class LogsViewModelTests: XCTestCase {
         viewModel.handle(.recorded(makeLog(message: "three", level: .info)))
 
         XCTAssertEqual(viewModel.logs.map(\.message), ["three", "two"])
+    }
+
+    func testTrimmedLogCanBeRedelivered() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "trim-redeliver", maxLogs: 2)
+        let viewModel = LogsViewModel(logBird: logBird)
+        let trimmed = makeLog(message: "one", level: .info)
+
+        viewModel.handle(.recorded(trimmed))
+        viewModel.handle(.recorded(makeLog(message: "two", level: .info)))
+        viewModel.handle(.recorded(makeLog(message: "three", level: .info)))
+        viewModel.handle(.recorded(trimmed))
+
+        XCTAssertEqual(viewModel.logs.map(\.message), ["one", "three"])
+    }
+
+    func testRecordedEventsAreIgnoredWhenRetentionIsDisabled() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "vm-zero-retention", maxLogs: 0)
+        let viewModel = LogsViewModel(logBird: logBird)
+
+        viewModel.handle(.recorded(makeLog(message: "dropped", level: .info)))
+
+        XCTAssertTrue(viewModel.logs.isEmpty)
+    }
+
+    func testDisablingRetentionAtRuntimeEmptiesViewModelOnNextEvent() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "vm-runtime-zero", maxLogs: 10)
+        let viewModel = LogsViewModel(logBird: logBird)
+
+        viewModel.handle(.recorded(makeLog(message: "kept", level: .info)))
+        XCTAssertEqual(viewModel.logs.count, 1)
+
+        logBird.maxLogs = 0
+        viewModel.handle(.recorded(makeLog(message: "dropped", level: .info)))
+
+        XCTAssertTrue(viewModel.logs.isEmpty)
+    }
+
+    func testIsFilteringReflectsQueryAndLevelFilter() {
+        let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "is-filtering"))
+
+        XCTAssertFalse(viewModel.isFiltering)
+
+        viewModel.searchText = "   "
+        XCTAssertFalse(viewModel.isFiltering)
+
+        viewModel.searchText = "network"
+        XCTAssertTrue(viewModel.isFiltering)
+
+        viewModel.searchText = ""
+        viewModel.levelFilter = .error
+        XCTAssertTrue(viewModel.isFiltering)
     }
 
     func testClearedEventEmptiesViewModel() {
@@ -109,17 +162,71 @@ final class LogsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.filteredLogs.first?.message, "Network request finished")
     }
 
+    func testSearchMatchesAdditionalInfoKeysAndValues() {
+        let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "search-info"))
+        viewModel.logs = [
+            makeLog(message: "one", level: .info, additionalInfo: ["endpoint": .string("/checkout")]),
+            makeLog(message: "two", level: .info)
+        ]
+
+        viewModel.searchText = "checkout"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+
+        viewModel.searchText = "endpoint"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+    }
+
+    func testSearchMatchesErrorDomainAndCode() {
+        let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "search-error"))
+        let error = LBError(domain: "com.test.networking", code: 401, type: "NSError", localizedDescription: "Unauthorized", userInfo: ["endpoint": "/login"])
+        viewModel.logs = [
+            makeLog(message: "one", level: .error, error: error),
+            makeLog(message: "two", level: .info)
+        ]
+
+        viewModel.searchText = "networking"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+
+        viewModel.searchText = "401"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+
+        viewModel.searchText = "endpoint"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+    }
+
+    func testSearchMatchesSource() {
+        let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "search-source"))
+        viewModel.logs = [
+            makeLog(message: "one", level: .info)
+        ]
+
+        viewModel.searchText = "logbird.tests"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+
+        viewModel.searchText = "viewmodel"
+        XCTAssertEqual(viewModel.filteredLogs.map(\.message), ["one"])
+    }
+
     func testExportDataEncodesFilteredLogs() throws {
         let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "export"))
         viewModel.logs = [
             makeLog(message: "exported", level: .warning)
         ]
 
-        let data = try XCTUnwrap(viewModel.exportData())
+        let data = try viewModel.exportData()
         let decoded = try JSONDecoder().decode([LBLog].self, from: data)
 
         XCTAssertEqual(decoded.count, 1)
         XCTAssertEqual(decoded.first?.message, "exported")
+    }
+
+    func testExportDataThrowsOnNonFiniteValues() {
+        let viewModel = LogsViewModel(logBird: LogBird(subsystem: "com.logbird.tests", category: "export-error"))
+        viewModel.logs = [
+            makeLog(message: "nan", level: .info, additionalInfo: ["ratio": .double(.nan)])
+        ]
+
+        XCTAssertThrowsError(try viewModel.exportData())
     }
 
     func testLocationFileNameStripsModulePath() {

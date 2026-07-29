@@ -12,6 +12,8 @@ public struct LBLogsView: View {
 
     @StateObject private var viewModel: LogsViewModel
 
+    @State private var exportError: String?
+
     #if os(iOS)
     @State private var exportFile: ExportFile?
     #endif
@@ -56,6 +58,18 @@ public struct LBLogsView: View {
             LBActivityView(activityItems: [file.url])
         }
         #endif
+        .alert("Export Failed", isPresented: exportErrorPresented, presenting: exportError) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { error in
+            Text(error)
+        }
+    }
+
+    private var exportErrorPresented: Binding<Bool> {
+        Binding(
+            get: { exportError != nil },
+            set: { if !$0 { exportError = nil } }
+        )
     }
 
     #if os(iOS) || os(macOS)
@@ -80,7 +94,7 @@ public struct LBLogsView: View {
                         }
                     }
                 } label: {
-                    Label("Export Logs", systemImage: "square.and.arrow.up")
+                    Label(exportMenuTitle, systemImage: "square.and.arrow.up")
                 }
 
                 Button(role: .destructive) {
@@ -96,15 +110,27 @@ public struct LBLogsView: View {
         }
     }
 
+    /// The export covers what the list currently shows; the title says so when
+    /// a search query or level filter narrows the visible entries.
+    private var exportMenuTitle: String {
+        guard viewModel.isFiltering else { return "Export Logs" }
+        let count = viewModel.filteredLogs.count
+        return count == 1 ? "Export 1 Filtered Log" : "Export \(count) Filtered Logs"
+    }
+
     private func exportLogs(format: LBExportFormat) {
-        guard let data = viewModel.exportData(format: format) else { return }
-        #if os(iOS)
-        if let url = LBLogExport.writeTemporaryFile(data: data, format: format) {
-            exportFile = ExportFile(url: url)
+        do {
+            let data = try viewModel.exportData(format: format)
+            #if os(iOS)
+            exportFile = ExportFile(url: try LBLogExport.writeTemporaryFile(data: data, format: format))
+            #elseif os(macOS)
+            LBLogExport.presentSavePanel(data: data, format: format) { error in
+                exportError = error.localizedDescription
+            }
+            #endif
+        } catch {
+            exportError = error.localizedDescription
         }
-        #elseif os(macOS)
-        LBLogExport.presentSavePanel(data: data, format: format)
-        #endif
     }
     #endif
 }

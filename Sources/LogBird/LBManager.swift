@@ -42,14 +42,16 @@ final class LBManager: @unchecked Sendable {
     private var storedSensitiveKeys: [String] = LBRedactor.defaultSensitiveKeys
 
     /// The maximum number of entries kept in memory. Once the limit is reached,
-    /// the oldest entries are discarded. Values below 1 are treated as 1.
+    /// the oldest entries are discarded. A value of 0 disables retention: the
+    /// history stays empty while published events keep flowing. Negative values
+    /// are treated as 0.
     var maxLogs: Int {
         get {
             dispatchQueue.sync { storedMaxLogs }
         }
         set {
             dispatchQueue.sync {
-                self.storedMaxLogs = max(1, newValue)
+                self.storedMaxLogs = max(0, newValue)
                 self.trimLogs()
             }
         }
@@ -76,7 +78,7 @@ final class LBManager: @unchecked Sendable {
         let source = LBSource(subsystem: subsystem, category: category)
         self.logger = Logger(subsystem: source.subsystem, category: source.category)
         self.source = source
-        self.storedMaxLogs = max(1, maxLogs)
+        self.storedMaxLogs = max(0, maxLogs)
     }
 
     func setIdentifier(_ value: String?) {
@@ -158,7 +160,7 @@ final class LBManager: @unchecked Sendable {
         let log = LBLog(
             level: level,
             message: message,
-            extraMessages: extraMessages,
+            extraMessages: redactor.redact(extraMessages),
             additionalInfo: redactor.redact(additionalInfo),
             error: errorData,
             createdAt: Date().timeIntervalSince1970,

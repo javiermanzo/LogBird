@@ -63,9 +63,29 @@ final class LBLogTests: XCTestCase {
         XCTAssertEqual(decoded["site"], .string("https://example.com"))
     }
 
+    func testLBValueNestedValuesCodableRoundTrip() throws {
+        let values: [String: LBValue] = [
+            "tags": .array([.string("swift"), .int(6), .bool(true)]),
+            "context": .dictionary([
+                "screen": .string("checkout"),
+                "attempt": .int(2),
+                "ids": .array([.int(1), .int(2)])
+            ])
+        ]
+
+        let data = try JSONEncoder().encode(values)
+        let decoded = try JSONDecoder().decode([String: LBValue].self, from: data)
+
+        XCTAssertEqual(decoded, values)
+    }
+
+    func testLBValueNestedDescription() {
+        XCTAssertEqual(LBValue.array([.int(1), .string("two")]).description, "[1, two]")
+        XCTAssertEqual(LBValue.dictionary(["b": .int(2), "a": .int(1)]).description, "{a: 1, b: 2}")
+    }
+
     func testLBValueDecodeFailsForUnsupportedPayloads() {
-        XCTAssertThrowsError(try JSONDecoder().decode(LBValue.self, from: Data("[1, 2]".utf8)))
-        XCTAssertThrowsError(try JSONDecoder().decode(LBValue.self, from: Data(#"{"a": 1}"#.utf8)))
+        XCTAssertThrowsError(try JSONDecoder().decode(LBValue.self, from: Data("null".utf8)))
     }
 
     func testLBValueExpressibleByLiterals() {

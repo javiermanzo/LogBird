@@ -41,7 +41,8 @@ extension LogBird {
         shared.logs
     }
 
-    /// The maximum number of entries kept in memory by `shared`.
+    /// The maximum number of entries kept in memory by `shared`. A value of 0
+    /// disables the in-memory history while events keep publishing.
     static public var maxLogs: Int {
         get { shared.maxLogs }
         set { shared.maxLogs = newValue }
@@ -53,22 +54,23 @@ extension LogBird {
     /// The string that replaces a redacted value.
     static public let redactionPlaceholder: String = LBRedactor.placeholder
 
-    /// Whether values under sensitive keys in `additionalInfo` and
-    /// `error.userInfo` are replaced by the redaction placeholder before a log
-    /// is stored. Default: `true`.
+    /// Whether values under sensitive keys in `additionalInfo`, `extraMessages`
+    /// and `error.userInfo` are replaced by the redaction placeholder before a
+    /// log is stored. Default: `true`.
     ///
     /// A redacted value is always stored as a string, regardless of its
-    /// original type. Free-text fields (`message`, `extraMessages`, and an
-    /// error's `localizedDescription`) are not scanned; mark sensitive values
-    /// at the call site with `LBLogMessage` instead.
+    /// original type. `message` and an error's `localizedDescription` are not
+    /// scanned; mark sensitive values at the call site with `LBLogMessage`
+    /// instead.
     static public var redactSensitiveFields: Bool {
         get { shared.redactSensitiveFields }
         set { shared.redactSensitiveFields = newValue }
     }
 
     /// The keys considered sensitive when redacting. A key is sensitive when it
-    /// contains any of these values; matching is case-insensitive, so
-    /// `accessToken` matches `token`.
+    /// contains any of these values; matching is case-insensitive and ignores
+    /// underscores, hyphens and whitespace, so `accessToken` and `ACCESS-TOKEN`
+    /// match `token`.
     ///
     /// Setting this property replaces the default keys; append to
     /// `defaultSensitiveKeys` to extend them.
@@ -120,29 +122,31 @@ extension LogBird {
     }
 
     /// The maximum number of entries kept in memory. Once the limit is reached,
-    /// the oldest entries are discarded. Lowering the value trims the existing
-    /// history immediately and cannot be undone.
+    /// the oldest entries are discarded. A value of 0 disables the in-memory
+    /// history while events keep publishing. Lowering the value trims the
+    /// existing history immediately and cannot be undone.
     public var maxLogs: Int {
         get { manager.maxLogs }
         set { manager.maxLogs = newValue }
     }
 
-    /// Whether values under sensitive keys in `additionalInfo` and
-    /// `error.userInfo` are replaced by the redaction placeholder before a log
-    /// is stored. Default: `true`.
+    /// Whether values under sensitive keys in `additionalInfo`, `extraMessages`
+    /// and `error.userInfo` are replaced by the redaction placeholder before a
+    /// log is stored. Default: `true`.
     ///
     /// A redacted value is always stored as a string, regardless of its
-    /// original type. Free-text fields (`message`, `extraMessages`, and an
-    /// error's `localizedDescription`) are not scanned; mark sensitive values
-    /// at the call site with `LBLogMessage` instead.
+    /// original type. `message` and an error's `localizedDescription` are not
+    /// scanned; mark sensitive values at the call site with `LBLogMessage`
+    /// instead.
     public var redactSensitiveFields: Bool {
         get { manager.redactSensitiveFields }
         set { manager.redactSensitiveFields = newValue }
     }
 
     /// The keys considered sensitive when redacting. A key is sensitive when it
-    /// contains any of these values; matching is case-insensitive, so
-    /// `accessToken` matches `token`.
+    /// contains any of these values; matching is case-insensitive and ignores
+    /// underscores, hyphens and whitespace, so `accessToken` and `ACCESS-TOKEN`
+    /// match `token`.
     ///
     /// Setting this property replaces the default keys; append to
     /// `LogBird.defaultSensitiveKeys` to extend them.
