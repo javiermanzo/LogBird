@@ -21,9 +21,14 @@ final class LBManager: @unchecked Sendable {
     private let source: LBSource
 
     private var logs: [LBLog] = []
-    private let logsSubject = CurrentValueSubject<[LBLog], Never>([])
-    var logsPublisher: AnyPublisher<[LBLog], Never> {
+    private let logsSubject = PassthroughSubject<LBLogEvent, Never>()
+    var logsPublisher: AnyPublisher<LBLogEvent, Never> {
         logsSubject.eraseToAnyPublisher()
+    }
+
+    /// The recorded history, newest first. Reading is serialized with mutations.
+    var logsSnapshot: [LBLog] {
+        dispatchQueue.sync { logs }
     }
 
     static let dateStyle: Date.ISO8601FormatStyle = {
@@ -45,12 +50,7 @@ final class LBManager: @unchecked Sendable {
         set {
             dispatchQueue.sync {
                 self.storedMaxLogs = max(1, newValue)
-                let countBeforeTrim = self.logs.count
                 self.trimLogs()
-                if self.logs.count != countBeforeTrim {
-                    let snapshot = self.logs
-                    self.publishQueue.async { self.logsSubject.send(snapshot) }
-                }
             }
         }
     }
@@ -116,15 +116,14 @@ final class LBManager: @unchecked Sendable {
             self.logger.log(level: level.osLogType, "\(logMessage, privacy: .public)")
             self.logs.insert(log, at: 0)
             self.trimLogs()
-            let snapshot = self.logs
-            self.publishQueue.async { self.logsSubject.send(snapshot) }
+            self.publishQueue.async { self.logsSubject.send(.recorded(log)) }
         }
     }
 
     func clearLogs() {
         dispatchQueue.sync {
             self.logs = []
-            self.publishQueue.async { self.logsSubject.send([]) }
+            self.publishQueue.async { self.logsSubject.send(.cleared) }
         }
     }
 

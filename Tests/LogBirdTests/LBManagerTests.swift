@@ -3,49 +3,16 @@ import XCTest
 
 final class LBManagerTests: XCTestCase {
 
-    /// Waits until `logsPublisher` reports at least `expectedCount` entries and
-    /// returns the latest snapshot.
-    private func waitForLogs(of logBird: LogBird, count expectedCount: Int, timeout: TimeInterval = 5) -> [LBLog] {
-        let expectation = expectation(description: "logs reach \(expectedCount)")
-        var latest: [LBLog] = []
-        var fulfilled = false
-        let cancellable = logBird.logsPublisher.sink { logs in
-            latest = logs
-            if !fulfilled, logs.count >= expectedCount {
-                fulfilled = true
-                expectation.fulfill()
-            }
-        }
-        wait(for: [expectation], timeout: timeout)
-        cancellable.cancel()
-        return latest
-    }
-
     func testMaxLogsDiscardsOldestEntries() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "maxlogs", maxLogs: 100)
-
-        // The terminal snapshot has the newest entry first; waiting for it avoids
-        // asserting on an intermediate trimmed emission.
-        let expectation = expectation(description: "history settles at the cap")
-        var latest: [LBLog] = []
-        var fulfilled = false
-        let cancellable = logBird.logsPublisher.sink { logs in
-            latest = logs
-            if !fulfilled, logs.count == 100, logs.first?.message == "log-999" {
-                fulfilled = true
-                expectation.fulfill()
-            }
-        }
 
         for index in 0..<1000 {
             logBird.log("log-\(index)")
         }
 
-        wait(for: [expectation], timeout: 5)
-        cancellable.cancel()
-        XCTAssertEqual(latest.count, 100)
-        XCTAssertEqual(latest.first?.message, "log-999")
-        XCTAssertEqual(latest.last?.message, "log-900")
+        XCTAssertEqual(logBird.logs.count, 100)
+        XCTAssertEqual(logBird.logs.first?.message, "log-999")
+        XCTAssertEqual(logBird.logs.last?.message, "log-900")
     }
 
     func testMaxLogsSetterTrimsExistingHistory() {
@@ -54,26 +21,13 @@ final class LBManagerTests: XCTestCase {
         for index in 0..<50 {
             logBird.log("log-\(index)")
         }
-        XCTAssertEqual(waitForLogs(of: logBird, count: 50).count, 50)
-
-        let expectation = expectation(description: "history is trimmed")
-        var latest: [LBLog] = []
-        var fulfilled = false
-        let cancellable = logBird.logsPublisher.sink { logs in
-            latest = logs
-            if !fulfilled, logs.count == 10 {
-                fulfilled = true
-                expectation.fulfill()
-            }
-        }
+        XCTAssertEqual(logBird.logs.count, 50)
 
         logBird.maxLogs = 10
 
-        wait(for: [expectation], timeout: 5)
-        cancellable.cancel()
-        XCTAssertEqual(latest.count, 10)
-        XCTAssertEqual(latest.first?.message, "log-49")
-        XCTAssertEqual(latest.last?.message, "log-40")
+        XCTAssertEqual(logBird.logs.count, 10)
+        XCTAssertEqual(logBird.logs.first?.message, "log-49")
+        XCTAssertEqual(logBird.logs.last?.message, "log-40")
     }
 
     func testMaxLogsBelowOneIsClamped() {
@@ -83,23 +37,11 @@ final class LBManagerTests: XCTestCase {
         logBird.maxLogs = -5
         XCTAssertEqual(logBird.maxLogs, 1)
 
-        let expectation = expectation(description: "newest entry is retained")
-        var latest: [LBLog] = []
-        var fulfilled = false
-        let cancellable = logBird.logsPublisher.sink { logs in
-            latest = logs
-            if !fulfilled, logs.first?.message == "second" {
-                fulfilled = true
-                expectation.fulfill()
-            }
-        }
-
         logBird.log("first")
         logBird.log("second")
 
-        wait(for: [expectation], timeout: 5)
-        cancellable.cancel()
-        XCTAssertEqual(latest.count, 1)
+        XCTAssertEqual(logBird.logs.count, 1)
+        XCTAssertEqual(logBird.logs.first?.message, "second")
     }
 
     func testLogWithoutMessage() {
@@ -107,9 +49,8 @@ final class LBManagerTests: XCTestCase {
 
         logBird.log(level: .error)
 
-        let logs = waitForLogs(of: logBird, count: 1)
-        XCTAssertNil(logs.first?.message)
-        XCTAssertEqual(logs.first?.level, .error)
+        XCTAssertNil(logBird.logs.first?.message)
+        XCTAssertEqual(logBird.logs.first?.level, .error)
     }
 
     func testLogPreservesAdditionalInfoTypes() {
@@ -123,7 +64,7 @@ final class LBManagerTests: XCTestCase {
             "site": .url(URL(string: "https://example.com")!)
         ])
 
-        let info = waitForLogs(of: logBird, count: 1).first?.additionalInfo
+        let info = logBird.logs.first?.additionalInfo
         XCTAssertEqual(info?["count"], .int(12))
         XCTAssertEqual(info?["ratio"], .double(1.5))
         XCTAssertEqual(info?["flag"], .bool(true))
@@ -142,7 +83,7 @@ final class LBManagerTests: XCTestCase {
             logBird.log(error: error, level: .error)
         }
 
-        let error = waitForLogs(of: logBird, count: 1).first?.error
+        let error = logBird.logs.first?.error
         XCTAssertEqual(error?.type, "DecodingError")
         XCTAssertEqual(error?.userInfo?["codingPath"], "count")
         XCTAssertNotNil(error?.userInfo?["debugDescription"])
@@ -160,7 +101,7 @@ final class LBManagerTests: XCTestCase {
             logBird.log(error: error, level: .error)
         }
 
-        let error = waitForLogs(of: logBird, count: 1).first?.error
+        let error = logBird.logs.first?.error
         XCTAssertEqual(error?.type, "EncodingError")
         XCTAssertEqual(error?.userInfo?["codingPath"], "ratio")
         XCTAssertNotNil(error?.userInfo?["debugDescription"])
@@ -180,7 +121,7 @@ final class LBManagerTests: XCTestCase {
 
         logBird.log(error: error, level: .error)
 
-        let lbError = waitForLogs(of: logBird, count: 1).first?.error
+        let lbError = logBird.logs.first?.error
         XCTAssertEqual(lbError?.type, "NSError")
         XCTAssertEqual(lbError?.domain, "com.test.outer")
         XCTAssertEqual(lbError?.code, 7)

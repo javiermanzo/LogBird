@@ -19,10 +19,26 @@ public class LogBird: @unchecked Sendable {
 
 // MARK: Public Static methods
 extension LogBird {
-    static public let shared = LogBird(subsystem: Bundle.main.bundleIdentifier ?? "", category: "general")
+    /// Uses the host bundle identifier as subsystem, or a stable default where
+    /// the bundle provides none (e.g. tests or command-line tools).
+    static public let shared = LogBird(subsystem: resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier), category: "general")
 
-    static public var logsPublisher: AnyPublisher<[LBLog], Never> {
+    /// Returns the bundle identifier to use as subsystem, or a stable default
+    /// when the host bundle has none.
+    static func resolvedSubsystem(bundleIdentifier: String?) -> String {
+        bundleIdentifier ?? "com.logbird.default"
+    }
+
+    /// Publishes history events as they happen: `recorded` for each new entry
+    /// and `cleared` when the history is emptied. Earlier events are not
+    /// replayed to new subscribers; use `logs` for the recorded history.
+    static public var logsPublisher: AnyPublisher<LBLogEvent, Never> {
         shared.logsPublisher
+    }
+
+    /// The recorded history of `shared`, newest first.
+    static public var logs: [LBLog] {
+        shared.logs
     }
 
     /// The maximum number of entries kept in memory by `shared`.
@@ -73,6 +89,7 @@ extension LogBird {
         shared.log(message, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 
+    /// Empties the recorded history. Subscribers receive a `cleared` event.
     static public func clearLogs() {
         shared.clearLogs()
     }
@@ -89,8 +106,17 @@ extension LogBird {
 // MARK: Public Methods
 extension LogBird {
 
-    public var logsPublisher: AnyPublisher<[LBLog], Never> {
+    /// Publishes history events as they happen: `recorded` for each new entry
+    /// and `cleared` when the history is emptied. Earlier events are not
+    /// replayed to new subscribers; use `logs` for the recorded history.
+    public var logsPublisher: AnyPublisher<LBLogEvent, Never> {
         manager.logsPublisher
+    }
+
+    /// The recorded history, newest first. The number of entries is capped at
+    /// `maxLogs`.
+    public var logs: [LBLog] {
+        manager.logsSnapshot
     }
 
     /// The maximum number of entries kept in memory. Once the limit is reached,
@@ -137,6 +163,7 @@ extension LogBird {
         manager.log(message.value, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 
+    /// Empties the recorded history. Subscribers receive a `cleared` event.
     public func clearLogs() {
         manager.clearLogs()
     }
