@@ -7,14 +7,14 @@
 
 import SwiftUI
 
-public struct LBLogRowView: View {
-    public let log: LBLog
+struct LBLogRowView: View {
+    let log: LBLog
 
-    public init(log: LBLog) {
+    init(log: LBLog) {
         self.log = log
     }
 
-    public var body: some View {
+    var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             let date = LBManager.dateStyle.format(Date(timeIntervalSince1970: log.createdAt))
             Header(createdAt: date, level: log.level)
