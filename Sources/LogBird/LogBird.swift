@@ -19,7 +19,15 @@ public class LogBird: @unchecked Sendable {
 
 // MARK: Public Static methods
 extension LogBird {
-    static public let shared = LogBird(subsystem: Bundle.main.bundleIdentifier ?? "", category: "general")
+    /// Uses the host bundle identifier as subsystem, or a stable default where
+    /// the bundle provides none (e.g. tests or command-line tools).
+    static public let shared = LogBird(subsystem: resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier), category: "general")
+
+    /// Returns the bundle identifier to use as subsystem, or a stable default
+    /// when the host bundle has none.
+    static func resolvedSubsystem(bundleIdentifier: String?) -> String {
+        bundleIdentifier ?? "com.logbird.unknown"
+    }
 
     static public var logsPublisher: AnyPublisher<[LBLog], Never> {
         shared.logsPublisher
