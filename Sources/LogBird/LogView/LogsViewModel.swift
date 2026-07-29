@@ -78,7 +78,7 @@ final class LogsViewModel: ObservableObject {
         }
 
         if let extraMessages = log.extraMessages,
-           extraMessages.contains(where: { $0.title.localizedCaseInsensitiveContains(query) || $0.message.localizedCaseInsensitiveContains(query) }) {
+           extraMessages.contains(where: { $0.key.localizedCaseInsensitiveContains(query) || $0.value.localizedCaseInsensitiveContains(query) }) {
             return true
         }
 

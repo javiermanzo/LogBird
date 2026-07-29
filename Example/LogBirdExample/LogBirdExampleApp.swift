@@ -15,7 +15,7 @@ struct LogBirdExampleApp: App {
         LogBird.clearLogs()
 
         let extraMessages: [LBExtraMessage] = [
-            LBExtraMessage(title: "Title Extra", message: "Message extra")
+            LBExtraMessage(key: "Extra key", value: "Extra value")
         ]
 
         for level in LBLogLevel.allCases {

@@ -89,8 +89,8 @@ final class LBLogTests: XCTestCase {
     }
 
     func testLBExtraMessageHasUniqueIdentityWithContentEquality() {
-        let first = LBExtraMessage(title: "title", message: "message")
-        let second = LBExtraMessage(title: "title", message: "message")
+        let first = LBExtraMessage(key: "key", value: "value")
+        let second = LBExtraMessage(key: "key", value: "value")
 
         XCTAssertEqual(first, second)
         XCTAssertNotEqual(first.id, second.id)
