@@ -7,6 +7,12 @@
 
 import SwiftUI
 
+/// SwiftUI view that lists the recorded history, with search, level filter,
+/// export and clear actions.
+///
+/// The view observes `logsPublisher` through an internal view model, so it
+/// updates as new entries are recorded. By default it backs onto `LogBird.shared`;
+/// pass a custom instance to `init(logBird:)` to scope it differently.
 @MainActor
 public struct LBLogsView: View {
 

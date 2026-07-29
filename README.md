@@ -139,7 +139,7 @@ LogBird.logsPublisher
     .store(in: &subscribers)
 ```
 
-The recorded history is always available synchronously via `LogBird.logs` (newest first).
+The recorded history is always available synchronously via `LogBird.logs` (oldest first, in recording order).
 
 ### SwiftUI View
 Use `LBLogsView` to visualize logs in your app. You can optionally provide a custom `LogBird` instance; by default, it uses the static instance:
@@ -165,7 +165,7 @@ customLogger.clearLogs()
 
 ## How It Works
 
-- **Storage**: every log is kept in an in-memory history (newest first) capped at `maxLogs` entries. The history is readable synchronously via `logs`; call `clearLogs()` to empty it.
+- **Storage**: every log is kept in an in-memory history (oldest first, in recording order) capped at `maxLogs` entries. The history is readable synchronously via `logs`; call `clearLogs()` to empty it.
 - **Console output**: under the hood, each entry is also forwarded to `OSLog` (`os.Logger`), so logs are visible in Console.app and via `log stream` under your subsystem and category (pass `--debug` to `log stream` to include debug-level entries).
 - **Combine**: `logsPublisher` emits an `LBLogEvent` for each new entry (`recorded`) and every `clearLogs()` call (`cleared`); earlier events are not replayed to new subscribers. Read `logs` for a synchronous snapshot of the recorded history.
 - **SwiftUI**: `LBLogsView` observes `logsPublisher` through an internal `ObservableObject` view model and re-renders on each new entry.

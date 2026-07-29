@@ -8,51 +8,62 @@
 import Foundation
 import Combine
 
+/// A logger that keeps a bounded in-memory history, mirrors entries to OSLog
+/// and publishes history events through Combine.
+///
+/// Use the static API (`LogBird.log(_:)`, `LogBird.logs`, ...) for a shared
+/// instance, or create one with `init(subsystem:category:maxLogs:)` for an
+/// isolated subsystem/category pair and history. Instances are thread-safe.
 public class LogBird: @unchecked Sendable {
 
     private let manager: LBManager
 
+    /// Creates a logger that records under the given `subsystem` and `category`.
+    ///
+    /// - Parameters:
+    ///   - subsystem: Reverse-DNS identifier used by OSLog (e.g.
+    ///     `com.example.myapp`).
+    ///   - category: OSLog category used to scope entries in Console.app.
+    ///   - maxLogs: Maximum number of entries kept in memory. Older entries are
+    ///     discarded first. `0` disables the in-memory history while published
+    ///     events keep flowing. Defaults to `1000`.
     public init(subsystem: String, category: String, maxLogs: Int = 1000) {
         manager = LBManager(subsystem: subsystem, category: category, maxLogs: maxLogs)
     }
 }
 
-// MARK: Public Static methods
-extension LogBird {
-    /// Uses the host bundle identifier as subsystem, or a stable default where
-    /// the bundle provides none (e.g. tests or command-line tools).
-    static public let shared = LogBird(subsystem: resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier), category: "general")
+// MARK: Public Static
+public extension LogBird {
 
-    /// Returns the bundle identifier to use as subsystem, or a stable default
-    /// when the host bundle has none.
-    static func resolvedSubsystem(bundleIdentifier: String?) -> String {
-        bundleIdentifier ?? "com.logbird.default"
-    }
+    /// A shared logger that uses the host bundle identifier as subsystem and
+    /// `general` as category, or a stable default where the bundle provides
+    /// none (e.g. tests or command-line tools).
+    static let shared = LogBird(subsystem: resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier), category: "general")
 
     /// Publishes history events as they happen: `recorded` for each new entry
     /// and `cleared` when the history is emptied. Earlier events are not
     /// replayed to new subscribers; use `logs` for the recorded history.
-    static public var logsPublisher: AnyPublisher<LBLogEvent, Never> {
+    static var logsPublisher: AnyPublisher<LBLogEvent, Never> {
         shared.logsPublisher
     }
 
     /// The recorded history of `shared`, in recording order (oldest first).
-    static public var logs: [LBLog] {
+    static var logs: [LBLog] {
         shared.logs
     }
 
     /// The maximum number of entries kept in memory by `shared`. A value of 0
     /// disables the in-memory history while events keep publishing.
-    static public var maxLogs: Int {
+    static var maxLogs: Int {
         get { shared.maxLogs }
         set { shared.maxLogs = newValue }
     }
 
     /// Keys matched by default when redacting sensitive fields.
-    static public let defaultSensitiveKeys: [String] = LBRedactor.defaultSensitiveKeys
+    static let defaultSensitiveKeys: [String] = LBRedactor.defaultSensitiveKeys
 
     /// The string that replaces a redacted value.
-    static public let redactionPlaceholder: String = LBRedactor.placeholder
+    static let redactionPlaceholder: String = LBRedactor.placeholder
 
     /// Whether values under sensitive keys in `additionalInfo`, `extraMessages`
     /// and `error.userInfo` are replaced by the redaction placeholder before a
@@ -62,7 +73,7 @@ extension LogBird {
     /// original type. `message` and an error's `localizedDescription` are not
     /// scanned; mark sensitive values at the call site with `LBLogMessage`
     /// instead.
-    static public var redactSensitiveFields: Bool {
+    static var redactSensitiveFields: Bool {
         get { shared.redactSensitiveFields }
         set { shared.redactSensitiveFields = newValue }
     }
@@ -74,50 +85,78 @@ extension LogBird {
     ///
     /// Setting this property replaces the default keys; append to
     /// `defaultSensitiveKeys` to extend them.
-    static public var sensitiveKeys: [String] {
+    static var sensitiveKeys: [String] {
         get { shared.sensitiveKeys }
         set { shared.sensitiveKeys = newValue }
     }
 
-    static public func setIdentifier(_ identifier: String?) {
+    /// Sets an optional identifier prepended to each OSLog line for the shared
+    /// instance, such as a session or user id.
+    ///
+    /// - Parameter identifier: `String?` — identifier to prepend, or `nil` to clear.
+    static func setIdentifier(_ identifier: String?) {
         shared.setIdentifier(identifier)
     }
 
-    static public func log(_ message: String? = nil, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
+    /// Records a log entry on the shared instance.
+    ///
+    /// - Parameters:
+    ///   - message: `String?` — free-text message. Use `LBLogMessage` to redact sensitive content.
+    ///   - extraMessages: `[LBExtraMessage]?` — labeled strings shown as separate sections.
+    ///   - additionalInfo: `[String: LBValue]?` — typed metadata keyed by name.
+    ///   - error: `Error?` — error to capture (includes `DecodingError`/`EncodingError` context).
+    ///   - level: `LBLogLevel` — severity. Defaults to `.debug`.
+    ///   - file: `String` — source file. Defaults to `#fileID`.
+    ///   - function: `String` — source function. Defaults to `#function`.
+    ///   - line: `Int` — source line. Defaults to `#line`.
+    static func log(_ message: String? = nil, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
         shared.log(message, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 
-    static public func log(_ message: LBLogMessage, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
+    /// Records a log entry built from a privacy-aware `LBLogMessage`.
+    /// Parameters other than `message` match the `String?` overload.
+    static func log(_ message: LBLogMessage, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
         shared.log(message, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 
     /// Empties the recorded history. Subscribers receive a `cleared` event.
-    static public func clearLogs() {
+    static func clearLogs() {
         shared.clearLogs()
     }
 
-    static public func exportLogs(format: LBExportFormat = .json) throws -> Data {
+    /// Exports the recorded history of the shared instance.
+    ///
+    /// - Parameter format: `LBExportFormat` — encoding to use. Defaults to `.json`.
+    /// - Throws: `EncodingError` if a log value cannot be encoded (e.g. non-finite double).
+    /// - Returns: `Data` containing the encoded history.
+    static func exportLogs(format: LBExportFormat = .json) throws -> Data {
         try shared.exportLogs(format: format)
     }
 
-    static public func writeLogs(to url: URL, format: LBExportFormat = .json) throws {
+    /// Writes the recorded history of the shared instance to `url`.
+    ///
+    /// - Parameters:
+    ///   - url: `URL` — destination file URL.
+    ///   - format: `LBExportFormat` — encoding to use. Defaults to `.json`.
+    /// - Throws: `EncodingError` if a value cannot be encoded, or the file-system error if writing fails.
+    static func writeLogs(to url: URL, format: LBExportFormat = .json) throws {
         try shared.writeLogs(to: url, format: format)
     }
 }
 
-// MARK: Public Methods
-extension LogBird {
+// MARK: Public
+public extension LogBird {
 
     /// Publishes history events as they happen: `recorded` for each new entry
     /// and `cleared` when the history is emptied. Earlier events are not
     /// replayed to new subscribers; use `logs` for the recorded history.
-    public var logsPublisher: AnyPublisher<LBLogEvent, Never> {
+    var logsPublisher: AnyPublisher<LBLogEvent, Never> {
         manager.logsPublisher
     }
 
     /// The recorded history, in recording order (oldest first). The number of
     /// entries is capped at `maxLogs`.
-    public var logs: [LBLog] {
+    var logs: [LBLog] {
         manager.logsSnapshot
     }
 
@@ -125,7 +164,7 @@ extension LogBird {
     /// the oldest entries are discarded. A value of 0 disables the in-memory
     /// history while events keep publishing. Lowering the value trims the
     /// existing history immediately and cannot be undone.
-    public var maxLogs: Int {
+    var maxLogs: Int {
         get { manager.maxLogs }
         set { manager.maxLogs = newValue }
     }
@@ -138,7 +177,7 @@ extension LogBird {
     /// original type. `message` and an error's `localizedDescription` are not
     /// scanned; mark sensitive values at the call site with `LBLogMessage`
     /// instead.
-    public var redactSensitiveFields: Bool {
+    var redactSensitiveFields: Bool {
         get { manager.redactSensitiveFields }
         set { manager.redactSensitiveFields = newValue }
     }
@@ -150,42 +189,76 @@ extension LogBird {
     ///
     /// Setting this property replaces the default keys; append to
     /// `LogBird.defaultSensitiveKeys` to extend them.
-    public var sensitiveKeys: [String] {
+    var sensitiveKeys: [String] {
         get { manager.sensitiveKeys }
         set { manager.sensitiveKeys = newValue }
     }
 
-    public func setIdentifier(_ value: String?) {
+    /// Sets an optional identifier prepended to each OSLog line for this
+    /// instance, such as a session or user id.
+    ///
+    /// - Parameter value: `String?` — identifier to prepend, or `nil` to clear.
+    func setIdentifier(_ value: String?) {
         manager.setIdentifier(value)
     }
 
-    public func log(_ message: String? = nil, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
+    /// Records a log entry on this instance.
+    ///
+    /// - Parameters:
+    ///   - message: `String?` — free-text message. Use `LBLogMessage` to redact sensitive content.
+    ///   - extraMessages: `[LBExtraMessage]?` — labeled strings shown as separate sections.
+    ///   - additionalInfo: `[String: LBValue]?` — typed metadata keyed by name.
+    ///   - error: `Error?` — error to capture (includes `DecodingError`/`EncodingError` context).
+    ///   - level: `LBLogLevel` — severity. Defaults to `.debug`.
+    ///   - file: `String` — source file. Defaults to `#fileID`.
+    ///   - function: `String` — source function. Defaults to `#function`.
+    ///   - line: `Int` — source line. Defaults to `#line`.
+    func log(_ message: String? = nil, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
         manager.log(message, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 
-    public func log(_ message: LBLogMessage, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
+    /// Records a log entry built from a privacy-aware `LBLogMessage`.
+    /// Parameters other than `message` match the `String?` overload.
+    func log(_ message: LBLogMessage, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
         manager.log(message.value, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 
     /// Empties the recorded history. Subscribers receive a `cleared` event.
-    public func clearLogs() {
+    func clearLogs() {
         manager.clearLogs()
     }
 
-    var currentIdentifier: String? {
-        manager.currentIdentifier
-    }
-
-    /// Exports the recorded history in the given format.
+    /// Exports the recorded history.
     ///
-    /// - Throws: an `EncodingError` if a log value cannot be encoded
-    ///   (e.g. a non-finite double in `additionalInfo`).
-    public func exportLogs(format: LBExportFormat = .json) throws -> Data {
+    /// - Parameter format: `LBExportFormat` — encoding to use. Defaults to `.json`.
+    /// - Throws: `EncodingError` if a log value cannot be encoded (e.g. non-finite double).
+    /// - Returns: `Data` containing the encoded history.
+    func exportLogs(format: LBExportFormat = .json) throws -> Data {
         try manager.exportLogs(format: format)
     }
 
-    /// Writes the recorded history to a file in the given format.
-    public func writeLogs(to url: URL, format: LBExportFormat = .json) throws {
+    /// Writes the recorded history to `url`.
+    ///
+    /// - Parameters:
+    ///   - url: `URL` — destination file URL.
+    ///   - format: `LBExportFormat` — encoding to use. Defaults to `.json`.
+    /// - Throws: `EncodingError` if a value cannot be encoded, or the file-system error if writing fails.
+    func writeLogs(to url: URL, format: LBExportFormat = .json) throws {
         try manager.writeLogs(to: url, format: format)
+    }
+}
+
+// MARK: Internal
+extension LogBird {
+
+    /// Returns the bundle identifier to use as subsystem, or a stable default
+    /// when the host bundle has none.
+    static func resolvedSubsystem(bundleIdentifier: String?) -> String {
+        bundleIdentifier ?? "com.logbird.default"
+    }
+
+    /// The identifier currently prepended to each OSLog line, if any.
+    var currentIdentifier: String? {
+        manager.currentIdentifier
     }
 }

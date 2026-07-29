@@ -12,16 +12,27 @@ import Foundation
 /// Equality and hashing include `id`, so two entries are equal only when they
 /// represent the same recorded log.
 public struct LBLog: Codable, Identifiable, Hashable, Sendable {
+    /// Stable unique identifier for the entry.
     public let id: String
+    /// Severity of the entry.
     public let level: LBLogLevel
+    /// Free-text message, if any.
     public let message: String?
+    /// Labeled strings shown as separate sections, if any.
     public let extraMessages: [LBExtraMessage]?
+    /// Typed metadata keyed by name, if any.
     public let additionalInfo: [String: LBValue]?
+    /// Captured error details, if any.
     public let error: LBError?
+    /// Creation time, as seconds since the Unix epoch.
     public let createdAt: Double
+    /// Where the entry was recorded in source.
     public let location: LBLocation
+    /// OSLog subsystem and category the entry was recorded under.
     public let source: LBSource
 
+    /// Creates an entry. `id` defaults to a fresh UUID string; the other
+    /// parameters map one-to-one to the stored properties.
     init(
         id: String = UUID().uuidString,
         level: LBLogLevel,
@@ -45,8 +56,11 @@ public struct LBLog: Codable, Identifiable, Hashable, Sendable {
     }
 }
 
+/// The OSLog subsystem and category an entry was recorded under.
 public struct LBSource: Codable, Hashable, Sendable {
+    /// Reverse-DNS identifier used by OSLog (e.g. `com.example.myapp`).
     public let subsystem: String
+    /// OSLog category used to scope entries in Console.app.
     public let category: String
 
     init(subsystem: String, category: String) {
@@ -55,9 +69,13 @@ public struct LBSource: Codable, Hashable, Sendable {
     }
 }
 
+/// The source location where an entry was recorded.
 public struct LBLocation: Codable, Hashable, Sendable {
+    /// `#fileID` value at the call site (module/file path).
     public let file: String
+    /// `#function` value at the call site.
     public let function: String
+    /// `#line` value at the call site.
     public let line: Int
 
     init(file: String, function: String, line: Int) {
@@ -72,11 +90,18 @@ public struct LBLocation: Codable, Hashable, Sendable {
     }
 }
 
+/// Captured details of an `Error` recorded with a log entry.
 public struct LBError: Codable, Hashable, Sendable {
+    /// `NSError.domain` of the captured error.
     public let domain: String
+    /// `NSError.code` of the captured error.
     public let code: Int
+    /// Concrete Swift type of the captured error.
     public let type: String
+    /// `localizedDescription` of the captured error.
     public let localizedDescription: String
+    /// Stringified `userInfo`, with decoding/encoding context merged in for
+    /// `DecodingError` / `EncodingError`. `nil` when empty.
     public let userInfo: [String: String]?
 
     init(domain: String, code: Int, type: String, localizedDescription: String, userInfo: [String: String]? = nil) {
@@ -88,11 +113,16 @@ public struct LBError: Codable, Hashable, Sendable {
     }
 }
 
+/// A labeled string shown as its own section within a log entry.
 public struct LBExtraMessage: Codable, Identifiable, Sendable {
+    /// Stable unique identifier for list rendering.
     public let id: UUID
+    /// Section label.
     public let key: String
+    /// Section contents.
     public let value: String
 
+    /// Creates an extra message. `id` defaults to a fresh UUID.
     public init(id: UUID = UUID(), key: String, value: String) {
         self.id = id
         self.key = key
@@ -100,6 +130,7 @@ public struct LBExtraMessage: Codable, Identifiable, Sendable {
     }
 }
 
+// MARK: Hashable
 extension LBExtraMessage: Hashable {
     /// Equality and hashing are content-based; `id` only gives each instance a
     /// unique identity for list rendering.
@@ -113,16 +144,22 @@ extension LBExtraMessage: Hashable {
     }
 }
 
+// MARK: Encoding
 public extension LBLog {
-    private static let prettyJSONEncoder: JSONEncoder = {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return encoder
-    }()
 
     /// Returns a deterministic, pretty-printed JSON representation of the log.
     func prettyJSON() throws -> String {
         let data = try Self.prettyJSONEncoder.encode(self)
         return String(decoding: data, as: UTF8.self)
     }
+}
+
+// MARK: Private
+private extension LBLog {
+
+    static let prettyJSONEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
+    }()
 }
