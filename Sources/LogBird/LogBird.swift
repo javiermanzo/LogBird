@@ -34,9 +34,17 @@ extension LogBird {
     /// Keys matched by default when redacting sensitive fields.
     static public let defaultSensitiveKeys: [String] = LBRedactor.defaultSensitiveKeys
 
+    /// The string that replaces a redacted value.
+    static public let redactionPlaceholder: String = LBRedactor.placeholder
+
     /// Whether values under sensitive keys in `additionalInfo` and
-    /// `error.userInfo` are replaced by `<redacted>` before a log is stored.
-    /// Default: `true`.
+    /// `error.userInfo` are replaced by the redaction placeholder before a log
+    /// is stored. Default: `true`.
+    ///
+    /// A redacted value is always stored as a string, regardless of its
+    /// original type. Free-text fields (`message`, `extraMessages`, and an
+    /// error's `localizedDescription`) are not scanned; mark sensitive values
+    /// at the call site with `LBLogMessage` instead.
     static public var redactSensitiveFields: Bool {
         get { shared.redactSensitiveFields }
         set { shared.redactSensitiveFields = newValue }
@@ -45,6 +53,9 @@ extension LogBird {
     /// The keys considered sensitive when redacting. A key is sensitive when it
     /// contains any of these values; matching is case-insensitive, so
     /// `accessToken` matches `token`.
+    ///
+    /// Setting this property replaces the default keys; append to
+    /// `defaultSensitiveKeys` to extend them.
     static public var sensitiveKeys: [String] {
         get { shared.sensitiveKeys }
         set { shared.sensitiveKeys = newValue }
@@ -91,8 +102,13 @@ extension LogBird {
     }
 
     /// Whether values under sensitive keys in `additionalInfo` and
-    /// `error.userInfo` are replaced by `<redacted>` before a log is stored.
-    /// Default: `true`.
+    /// `error.userInfo` are replaced by the redaction placeholder before a log
+    /// is stored. Default: `true`.
+    ///
+    /// A redacted value is always stored as a string, regardless of its
+    /// original type. Free-text fields (`message`, `extraMessages`, and an
+    /// error's `localizedDescription`) are not scanned; mark sensitive values
+    /// at the call site with `LBLogMessage` instead.
     public var redactSensitiveFields: Bool {
         get { manager.redactSensitiveFields }
         set { manager.redactSensitiveFields = newValue }
@@ -101,6 +117,9 @@ extension LogBird {
     /// The keys considered sensitive when redacting. A key is sensitive when it
     /// contains any of these values; matching is case-insensitive, so
     /// `accessToken` matches `token`.
+    ///
+    /// Setting this property replaces the default keys; append to
+    /// `LogBird.defaultSensitiveKeys` to extend them.
     public var sensitiveKeys: [String] {
         get { manager.sensitiveKeys }
         set { manager.sensitiveKeys = newValue }

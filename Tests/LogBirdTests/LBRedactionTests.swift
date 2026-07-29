@@ -96,9 +96,32 @@ final class LBRedactionTests: XCTestCase {
 
         first.redactSensitiveFields = false
 
-        XCTAssertFalse(first.redactSensitiveFields)
-        XCTAssertTrue(second.redactSensitiveFields)
+        first.log("raw", additionalInfo: ["token": .string("abc123")])
+        second.log("redacted", additionalInfo: ["token": .string("abc123")])
+
+        XCTAssertEqual(waitForLogs(of: first, count: 1).first?.additionalInfo?["token"], .string("abc123"))
+        XCTAssertEqual(waitForLogs(of: second, count: 1).first?.additionalInfo?["token"], .string("<redacted>"))
         XCTAssertEqual(second.sensitiveKeys, LogBird.defaultSensitiveKeys)
+    }
+
+    func testEmptySensitiveKeysRedactNothing() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-empty-keys")
+        logBird.sensitiveKeys = []
+
+        logBird.log("raw", additionalInfo: ["token": .string("abc123")])
+
+        let info = waitForLogs(of: logBird, count: 1).first?.additionalInfo
+        XCTAssertEqual(info?["token"], .string("abc123"))
+    }
+
+    func testPlainTextExportDoesNotLeakSensitiveValues() throws {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-plaintext")
+
+        logBird.log("auth", additionalInfo: ["token": .string("Bearer abc123")])
+
+        let text = String(decoding: try logBird.exportLogs(format: .plainText), as: UTF8.self)
+        XCTAssertFalse(text.contains("Bearer abc123"))
+        XCTAssertTrue(text.contains(LogBird.redactionPlaceholder))
     }
 
     func testErrorUserInfoIsRedacted() {
