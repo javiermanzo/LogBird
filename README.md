@@ -15,7 +15,6 @@ LogBird is a powerful yet simple logging library for Swift, designed to provide 
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
-  - [CocoaPods](#cocoapods)
   - [Swift Package Manager](#swift-package-manager)
 - [Usage](#usage)
   - [Log Levels](#log-levels)
@@ -42,19 +41,12 @@ LogBird is a powerful yet simple logging library for Swift, designed to provide 
 
 ## Requirements
 
-- Swift 6.0 toolchain (Swift 5 and 6 language modes are both supported; CocoaPods consumers can build with Swift 5.9)
+- Swift 5.9 or 6.0 toolchain (Swift 5 and 6 language modes are both supported)
 - iOS 15.0+
 - macOS 12.0+
 
 ## Installation
-You can add LogBird to your project using [CocoaPods](https://cocoapods.org/) or [Swift Package Manager](https://swift.org/package-manager/).
-
-### CocoaPods
-Add the following line to your Podfile:
-
-```ruby
-pod 'LogBird'
-```
+LogBird is distributed as a Swift Package. Add it to your project using [Swift Package Manager](https://swift.org/package-manager/).
 
 ### Swift Package Manager
 Add the following to your `Package.swift` file:
