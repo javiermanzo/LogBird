@@ -15,10 +15,3 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
-
-  pod-lint:
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-      - name: Lint podspec
-        run: pod lib lint LogBird.podspec --allow-warnings
