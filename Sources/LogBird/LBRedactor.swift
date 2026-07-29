@@ -9,9 +9,9 @@ import Foundation
 
 /// Replaces values under sensitive keys with a fixed placeholder.
 ///
-/// A key is sensitive when it contains any of the configured keys; matching is
-/// case-insensitive and applies to both sides, so `accessToken` and
-/// `AUTH_TOKEN` both match `token`.
+/// A key is sensitive when it contains any of the configured keys. Matching is
+/// case-insensitive and ignores underscores, hyphens and spaces, so
+/// `accessToken`, `access-token` and `ACCESS_TOKEN` all match `token`.
 struct LBRedactor: Sendable {
 
     static let placeholder = "<redacted>"
@@ -23,7 +23,7 @@ struct LBRedactor: Sendable {
 
     init(isEnabled: Bool, sensitiveKeys: [String]) {
         self.isEnabled = isEnabled
-        self.needles = sensitiveKeys.map { $0.lowercased() }
+        self.needles = sensitiveKeys.map(Self.normalize).filter { !$0.isEmpty }
     }
 
     func redact(_ info: [String: LBValue]?) -> [String: LBValue]? {
@@ -44,8 +44,22 @@ struct LBRedactor: Sendable {
         return redacted
     }
 
+    func redact(_ extraMessages: [LBExtraMessage]?) -> [LBExtraMessage]? {
+        guard let extraMessages, isEnabled else { return extraMessages }
+        return extraMessages.map { message in
+            guard isSensitive(message.key) else { return message }
+            return LBExtraMessage(id: message.id, key: message.key, value: Self.placeholder)
+        }
+    }
+
     private func isSensitive(_ key: String) -> Bool {
-        let key = key.lowercased()
+        let key = Self.normalize(key)
         return needles.contains { key.contains($0) }
+    }
+
+    /// Lowercases and strips separators, so written variants of the same key
+    /// (`api_key`, `x-api-key`, `API KEY`) compare equal.
+    private static func normalize(_ key: String) -> String {
+        key.lowercased().filter { $0 != "_" && $0 != "-" && !$0.isWhitespace }
     }
 }

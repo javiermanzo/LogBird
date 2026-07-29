@@ -96,6 +96,48 @@ final class LBRedactionTests: XCTestCase {
         XCTAssertEqual(info?["token"], .string("abc123"))
     }
 
+    func testSensitiveKeyMatchingIgnoresSeparators() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-separators")
+
+        logBird.log("separators", additionalInfo: [
+            "api_key": .string("a"),
+            "x-api-key": .string("b"),
+            "API-KEY": .string("c"),
+            "auth token": .string("d")
+        ])
+
+        let info = logBird.logs.first?.additionalInfo
+        XCTAssertEqual(info?["api_key"], .string("<redacted>"))
+        XCTAssertEqual(info?["x-api-key"], .string("<redacted>"))
+        XCTAssertEqual(info?["API-KEY"], .string("<redacted>"))
+        XCTAssertEqual(info?["auth token"], .string("<redacted>"))
+    }
+
+    func testExtraMessageValuesAreRedactedByKey() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-extra-messages")
+
+        logBird.log("request", extraMessages: [
+            LBExtraMessage(key: "Authorization", value: "Bearer abc123"),
+            LBExtraMessage(key: "endpoint", value: "/login")
+        ])
+
+        let extraMessages = logBird.logs.first?.extraMessages
+        XCTAssertEqual(extraMessages?.first(where: { $0.key == "Authorization" })?.value, "<redacted>")
+        XCTAssertEqual(extraMessages?.first(where: { $0.key == "endpoint" })?.value, "/login")
+    }
+
+    func testExtraMessageRedactionKeepsEntryIdentity() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-extra-identity")
+        let original = LBExtraMessage(key: "session_token", value: "abc123")
+
+        logBird.log("request", extraMessages: [original])
+
+        let redacted = logBird.logs.first?.extraMessages?.first
+        XCTAssertEqual(redacted?.id, original.id)
+        XCTAssertEqual(redacted?.key, "session_token")
+        XCTAssertEqual(redacted?.value, "<redacted>")
+    }
+
     func testPlainTextExportDoesNotLeakSensitiveValues() throws {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-plaintext")
 
