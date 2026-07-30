@@ -153,6 +153,64 @@ final class LogBirdTests: XCTestCase {
         XCTAssertEqual(LogBird.resolvedSubsystem(bundleIdentifier: "com.example.app"), "com.example.app")
     }
 
+    /// `defaultCategory(fileID:)` returns the module component of `#fileID`,
+    /// so a package or app gets a category that reflects who owns the logger.
+    func testDefaultCategoryDerivesModuleFromFileID() {
+        XCTAssertEqual(LogBird.defaultCategory(fileID: "LogBird/LogBird.swift"), "LogBird")
+        XCTAssertEqual(LogBird.defaultCategory(fileID: "Network/Client.swift"), "Network")
+        XCTAssertEqual(LogBird.defaultCategory(fileID: "MyApp/AppDelegate.swift"), "MyApp")
+    }
+
+    /// When `#fileID` has no module separator, the whole value is returned as
+    /// the category rather than crashing or returning empty.
+    func testDefaultCategoryFallsBackToWholeValueWithoutSeparator() {
+        XCTAssertEqual(LogBird.defaultCategory(fileID: "AppDelegate.swift"), "AppDelegate.swift")
+        XCTAssertEqual(LogBird.defaultCategory(fileID: ""), "")
+    }
+
+    /// `LogBird()` uses the host bundle identifier as the subsystem default,
+    /// whatever the host bundle happens to be in the test runner.
+    func testInitDefaultsInferSubsystemFromMainBundle() {
+        let logBird = LogBird()
+        logBird.log("default-init-subsystem")
+
+        XCTAssertEqual(
+            logBird.logs.first?.source.subsystem,
+            LogBird.resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier)
+        )
+    }
+
+    /// `LogBird()` infers the category from the caller's module. Called from
+    /// this file, `#fileID` is `LogBirdTests/LogBirdTests.swift`, so the
+    /// category is the test module's name.
+    func testInitDefaultsInferCategoryFromCallerModule() {
+        let logBird = LogBird()
+        logBird.log("default-init-category")
+
+        XCTAssertEqual(logBird.logs.first?.source.category, "LogBirdTests")
+    }
+
+    /// Explicit `subsystem`/`category` always win over the inferred defaults.
+    func testInitExplicitArgumentsOverrideDefaults() {
+        let logBird = LogBird(subsystem: "com.network.lib", category: "auth")
+        logBird.log("explicit-override")
+
+        let source = logBird.logs.first?.source
+        XCTAssertEqual(source?.subsystem, "com.network.lib")
+        XCTAssertEqual(source?.category, "auth")
+    }
+
+    /// Partial override is supported: passing only `category` keeps the
+    /// inferred subsystem default.
+    func testInitPartialOverrideKeepsInferredSubsystem() {
+        let logBird = LogBird(category: "payments")
+        logBird.log("partial-override")
+
+        let source = logBird.logs.first?.source
+        XCTAssertEqual(source?.subsystem, LogBird.resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier))
+        XCTAssertEqual(source?.category, "payments")
+    }
+
     /// The static API forwards to `shared`: logging, history, configuration,
     /// publisher and export all operate on the same instance.
     func testStaticFacadeRoutesCallsToSharedInstance() throws {
