@@ -162,15 +162,7 @@ final class LBManager: @unchecked Sendable {
         case .logs(let entries):
             selected = entries
         }
-        let data = try LBLogExporter.data(for: selected, format: format, identifier: identifier)
-        switch destination {
-        case .data:
-            return .data(data)
-        case .file(let url):
-            let fileURL = url ?? LBLogExporter.temporaryURL(for: format)
-            try data.write(to: fileURL, options: .atomic)
-            return .file(fileURL, data: data)
-        }
+        return try LBLogExporter.export(selected, format: format, destination: destination, identifier: identifier)
     }
 
     /// Keeps only the newest `storedMaxLogs` entries. Must be called on `dispatchQueue`.

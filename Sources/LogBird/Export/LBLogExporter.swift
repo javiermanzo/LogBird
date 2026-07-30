@@ -25,6 +25,27 @@ enum LBLogExporter {
         return encoder
     }()
 
+    /// Encodes the given logs in `format` and delivers them to `destination`.
+    ///
+    /// - Parameters:
+    ///   - logs: `[LBLog]` — entries to export.
+    ///   - format: `LBExportFormat` — format to encode.
+    ///   - destination: `LBExportDestination` — `.data` or `.file`.
+    ///   - identifier: `String?` — optional identifier prepended to entries in `.plainText`.
+    /// - Throws: `EncodingError` if a log value cannot be encoded, or file-system error if writing fails.
+    /// - Returns: `LBExportOutput` with the encoded data and, for `.file`, the written URL.
+    static func export(_ logs: [LBLog], format: LBExportFormat, destination: LBExportDestination, identifier: String? = nil) throws -> LBExportOutput {
+        let data = try data(for: logs, format: format, identifier: identifier)
+        switch destination {
+        case .data:
+            return .data(data)
+        case .file(let url):
+            let fileURL = url ?? temporaryURL(for: format)
+            try data.write(to: fileURL, options: .atomic)
+            return .file(fileURL, data: data)
+        }
+    }
+
     /// Encodes the given logs in the requested format.
     ///
     /// - Parameters:
