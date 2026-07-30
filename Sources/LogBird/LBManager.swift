@@ -9,10 +9,13 @@ import Foundation
 import OSLog
 import Combine
 
+/// Engine behind `LogBird`: forwards entries to OSLog, keeps the bounded
+/// in-memory history and publishes history events. All mutable state is
+/// serialized on `dispatchQueue`.
 final class LBManager: @unchecked Sendable {
 
     private let logger: Logger
-    private var identifier: String?
+    private var storedIdentifier: String?
     private let dispatchQueue: DispatchQueue = DispatchQueue(label: "com.logbird.accessQueue")
     // Publishing runs on its own serial queue so subscriber callbacks never execute
     // while the state queue is held (avoids re-entrancy deadlocks).
@@ -22,6 +25,7 @@ final class LBManager: @unchecked Sendable {
 
     private var logs: [LBLog] = []
     private let logsSubject = PassthroughSubject<LBLogEvent, Never>()
+    /// Publishes history events (`recorded` / `cleared`) as they happen.
     var logsPublisher: AnyPublisher<LBLogEvent, Never> {
         logsSubject.eraseToAnyPublisher()
     }
@@ -31,12 +35,6 @@ final class LBManager: @unchecked Sendable {
     var logsSnapshot: [LBLog] {
         dispatchQueue.sync { logs }
     }
-
-    static let dateStyle: Date.ISO8601FormatStyle = {
-        var style = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
-        style.timeZone = .current
-        return style
-    }()
 
     private var storedMaxLogs: Int
     private var storedRedactSensitiveFields: Bool = true
@@ -58,8 +56,10 @@ final class LBManager: @unchecked Sendable {
         }
     }
 
-    var currentIdentifier: String? {
-        dispatchQueue.sync { identifier }
+    /// An optional identifier prepended to each OSLog line.
+    var identifier: String? {
+        get { dispatchQueue.sync { storedIdentifier } }
+        set { dispatchQueue.sync { storedIdentifier = newValue } }
     }
 
     /// Whether values under sensitive keys are redacted before a log is stored.
@@ -75,20 +75,17 @@ final class LBManager: @unchecked Sendable {
         set { dispatchQueue.sync { storedSensitiveKeys = newValue } }
     }
 
+    /// Creates a manager instance.
+    ///
+    /// - Parameters:
+    ///   - subsystem: `String` — Reverse-DNS subsystem identifier used by OSLog.
+    ///   - category: `String` — OSLog category scoping entries in Console.app.
+    ///   - maxLogs: `Int` — Maximum history entries kept in memory. Defaults to `1000`.
     init(subsystem: String, category: String, maxLogs: Int = 1000) {
         let source = LBSource(subsystem: subsystem, category: category)
         self.logger = Logger(subsystem: source.subsystem, category: source.category)
         self.source = source
         self.storedMaxLogs = max(0, maxLogs)
-    }
-
-    /// Sets an optional identifier prepended to each OSLog line.
-    ///
-    /// - Parameter value: `String?` — identifier to prepend, or `nil` to clear.
-    func setIdentifier(_ value: String?) {
-        dispatchQueue.sync {
-            self.identifier = value
-        }
     }
 
     /// Builds a log, forwards it to OSLog and records it (subject to `maxLogs`).
@@ -130,7 +127,7 @@ final class LBManager: @unchecked Sendable {
 
         // Serialize identifier read and log mutation to keep state consistent.
         dispatchQueue.sync {
-            let logMessage = Self.formattedMessage(for: log, identifier: self.identifier)
+            let logMessage = Self.formattedMessage(for: log, identifier: self.storedIdentifier)
             self.logger.log(level: level.osLogType, "\(logMessage, privacy: .public)")
             self.logs.append(log)
             self.trimLogs()
@@ -146,24 +143,26 @@ final class LBManager: @unchecked Sendable {
         }
     }
 
-    /// Encodes the recorded history.
-    ///
-    /// - Parameter format: `LBExportFormat` — encoding to use.
-    /// - Throws: `EncodingError` if a log value cannot be encoded.
-    /// - Returns: `Data` containing the encoded history.
-    func exportLogs(format: LBExportFormat) throws -> Data {
-        let (logs, identifier) = dispatchQueue.sync { (self.logs, self.identifier) }
-        return try LBLogExporter.data(for: logs, format: format, identifier: identifier)
-    }
-
-    /// Encodes the recorded history and writes it to `url` atomically.
+    /// Encodes the selected content and delivers it to `destination`.
     ///
     /// - Parameters:
-    ///   - url: `URL` — destination file URL.
+    ///   - content: `LBExportContent` — `.all` for the recorded history, or
+    ///     `.logs` for an arbitrary selection.
     ///   - format: `LBExportFormat` — encoding to use.
-    /// - Throws: `EncodingError` if a value cannot be encoded, or the file-system error if writing fails.
-    func writeLogs(to url: URL, format: LBExportFormat) throws {
-        try exportLogs(format: format).write(to: url, options: .atomic)
+    ///   - destination: `LBExportDestination` — `.data` to only encode, or
+    ///     `.file` to also write the result atomically.
+    /// - Throws: `EncodingError` if a log value cannot be encoded, or the file-system error if writing fails.
+    /// - Returns: `LBExportOutput` with the encoded data and, for `.file`, the written URL.
+    func export(_ content: LBExportContent, format: LBExportFormat, destination: LBExportDestination) throws -> LBExportOutput {
+        let (logs, identifier) = dispatchQueue.sync { (self.logs, self.storedIdentifier) }
+        let selected: [LBLog]
+        switch content {
+        case .all:
+            selected = logs
+        case .logs(let entries):
+            selected = entries
+        }
+        return try LBLogExporter.export(selected, format: format, destination: destination, identifier: identifier)
     }
 
     /// Keeps only the newest `storedMaxLogs` entries. Must be called on `dispatchQueue`.
@@ -199,6 +198,9 @@ final class LBManager: @unchecked Sendable {
         return log
     }
 
+    /// Captures an `Error` as an `LBError`, merging coding-path context for
+    /// `DecodingError` / `EncodingError` and redacting sensitive `userInfo`
+    /// values. Returns `nil` for a `nil` error.
     private func errorToLBError(_ error: Error?, redactor: LBRedactor) -> LBError? {
         guard let error else { return nil }
         let nsError = error as NSError
@@ -227,6 +229,8 @@ final class LBManager: @unchecked Sendable {
         )
     }
 
+    /// Extracts the coding path and debug details of a `DecodingError` as
+    /// `userInfo` entries.
     private static func contextInfo(for error: DecodingError) -> [String: Any] {
         var info: [String: Any] = [:]
         let context: DecodingError.Context
@@ -251,6 +255,8 @@ final class LBManager: @unchecked Sendable {
         return info
     }
 
+    /// Extracts the coding path and debug details of an `EncodingError` as
+    /// `userInfo` entries.
     private static func contextInfo(for error: EncodingError) -> [String: Any] {
         switch error {
         case .invalidValue(_, let context):
@@ -312,7 +318,7 @@ final class LBManager: @unchecked Sendable {
         logMessage = "\(logMessage)\(header)"
 
         // Created At
-        let createdAt: String = "Created at:\n\(spacing)\(LBManager.dateStyle.format(Date(timeIntervalSince1970: log.createdAt)))\n"
+        let createdAt: String = "Created at:\n\(spacing)\(LBLog.dateFormatter.format(Date(timeIntervalSince1970: log.createdAt)))\n"
         logMessage = "\(logMessage)\(createdAt)"
 
         // Message

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import LogBird
+import LogBirdUI
 
 @main
 struct LogBirdExampleApp: App {
@@ -25,7 +26,7 @@ struct LogBirdExampleApp: App {
         let someError = NSError(domain: "com.myapp.error", code: 500, userInfo: [NSLocalizedDescriptionKey: "Unknown error"])
         LogBird.log("Log Error", error: someError, level: .error)
 
-        LogBird.setIdentifier("🏀")
+        LogBird.identifier = "🏀"
         LogBird.log("Log With Console Identifier")
     }
 

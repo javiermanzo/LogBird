@@ -11,15 +11,25 @@ let package = Package(
         .library(
             name: "LogBird",
             targets: ["LogBird"]),
+        .library(
+            name: "LogBirdUI",
+            targets: ["LogBirdUI"]),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "LogBird"),
+        .target(
+            name: "LogBirdUI",
+            dependencies: ["LogBird"]),
         .testTarget(
             name: "LogBirdTests",
             dependencies: ["LogBird"]
+        ),
+        .testTarget(
+            name: "LogBirdUITests",
+            dependencies: ["LogBird", "LogBirdUI"]
         ),
     ],
     swiftLanguageModes: [.version("6"), .v5]

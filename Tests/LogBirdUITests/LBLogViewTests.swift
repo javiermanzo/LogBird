@@ -1,5 +1,6 @@
 import XCTest
-@testable import LogBird
+@testable import LogBirdUI
+import LogBird
 
 @MainActor
 final class LBLogViewTests: XCTestCase {

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		3B6DA9162CE637E800DCD397 /* LogBird in Frameworks */ = {isa = PBXBuildFile; productRef = 3B6DA9152CE637E800DCD397 /* LogBird */; };
+		3B6DA9222CE637E800DCD397 /* LogBirdUI in Frameworks */ = {isa = PBXBuildFile; productRef = 3B6DA9212CE637E800DCD397 /* LogBirdUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3B6DA9162CE637E800DCD397 /* LogBird in Frameworks */,
+				3B6DA9222CE637E800DCD397 /* LogBirdUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,6 +73,7 @@
 			name = LogBirdExample;
 			packageProductDependencies = (
 				3B6DA9152CE637E800DCD397 /* LogBird */,
+				3B6DA9212CE637E800DCD397 /* LogBirdUI */,
 			);
 			productName = LogBirdExample;
 			productReference = 3B4F12902CE5581E008BEA6E /* LogBirdExample.app */;
@@ -343,6 +346,10 @@
 		3B6DA9152CE637E800DCD397 /* LogBird */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LogBird;
+		};
+		3B6DA9212CE637E800DCD397 /* LogBirdUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LogBirdUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

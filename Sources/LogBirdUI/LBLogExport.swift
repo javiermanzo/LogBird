@@ -1,11 +1,12 @@
 //
 //  LBLogExport.swift
-//  LogBird
+//  LogBirdUI
 //
 //  Created by Javier Manzo on 27/07/2026.
 //
 
 import Foundation
+import LogBird
 #if os(iOS)
 import SwiftUI
 import UIKit
@@ -14,51 +15,34 @@ import AppKit
 import UniformTypeIdentifiers
 #endif
 
+/// UI presentation helpers behind `LBLogsView` export flow: macOS save panel
+/// and iOS activity view.
 enum LBLogExport {
 
-    /// A readable, sortable name such as `logbird-logs-20260729-143052.json`.
-    static func fileName(for format: LBExportFormat, date: Date = Date()) -> String {
-        "\(timestampBase(for: date)).\(format.fileExtension)"
-    }
-
-    static func writeTemporaryFile(data: Data, format: LBExportFormat) throws -> URL {
-        let directory = FileManager.default.temporaryDirectory
-        let base = timestampBase(for: Date())
-        var name = "\(base).\(format.fileExtension)"
-        var copy = 2
-        while FileManager.default.fileExists(atPath: directory.appendingPathComponent(name).path) {
-            name = "\(base)-\(copy).\(format.fileExtension)"
-            copy += 1
-        }
-        let url = directory.appendingPathComponent(name)
-        try data.write(to: url, options: .atomic)
-        return url
-    }
-
-    private static func timestampBase(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return "logbird-logs-\(formatter.string(from: date))"
-    }
-
     #if os(macOS)
+    /// Presents an `NSSavePanel` with a suggested file name for the format,
+    /// invoking `onSave` with the selected `URL`. Write failures are reported
+    /// through `onError`.
     @MainActor
-    static func presentSavePanel(data: Data, format: LBExportFormat, onError: @escaping (Error) -> Void) {
+    static func presentSavePanel(
+        format: LBExportFormat,
+        onSave: @escaping (URL) throws -> Void,
+        onError: @escaping (Error) -> Void
+    ) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [contentType(for: format)]
-        panel.nameFieldStringValue = fileName(for: format)
+        panel.nameFieldStringValue = format.fileName()
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             do {
-                try data.write(to: url, options: .atomic)
+                try onSave(url)
             } catch {
                 onError(error)
             }
         }
     }
 
+    /// The content type the save panel uses to filter and complete the file name.
     private static func contentType(for format: LBExportFormat) -> UTType {
         switch format {
         case .json:
@@ -75,6 +59,7 @@ enum LBLogExport {
 }
 
 #if os(iOS)
+/// Share sheet presenting the exported log file.
 struct LBActivityView: UIViewControllerRepresentable {
     let activityItems: [Any]
 

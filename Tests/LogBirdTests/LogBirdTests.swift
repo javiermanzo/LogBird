@@ -131,19 +131,24 @@ final class LogBirdTests: XCTestCase {
         XCTAssertEqual(events.count, 3)
     }
 
-    /// `setIdentifier` applies synchronously, so the value is visible to the
+    /// `identifier` applies synchronously, so the value is visible to the
     /// very next `log(...)` call.
-    func testSetIdentifierIsImmediatelyVisible() {
+    func testIdentifierIsImmediatelyVisible() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "identifier")
 
-        logBird.setIdentifier("session-42")
-        XCTAssertEqual(logBird.currentIdentifier, "session-42")
+        logBird.identifier = "session-42"
+        XCTAssertEqual(logBird.identifier, "session-42")
 
         logBird.log("hello")
         XCTAssertEqual(logBird.logs.count, 1)
 
-        logBird.setIdentifier(nil)
-        XCTAssertNil(logBird.currentIdentifier)
+        logBird.identifier = nil
+        XCTAssertNil(logBird.identifier)
+
+        LogBird.identifier = "shared-session"
+        XCTAssertEqual(LogBird.identifier, "shared-session")
+        LogBird.identifier = nil
+        XCTAssertNil(LogBird.identifier)
     }
 
     /// The shared instance needs a stable subsystem even where the host bundle
@@ -216,7 +221,7 @@ final class LogBirdTests: XCTestCase {
     func testStaticFacadeRoutesCallsToSharedInstance() throws {
         defer {
             LogBird.clearLogs()
-            LogBird.setIdentifier(nil)
+            LogBird.identifier = nil
         }
 
         XCTAssertEqual(LogBird.sensitiveKeys, LogBird.defaultSensitiveKeys)
@@ -229,7 +234,7 @@ final class LogBirdTests: XCTestCase {
             publishedExpectation.fulfill()
         }
 
-        LogBird.setIdentifier("static-facade")
+        LogBird.identifier = "static-facade"
         LogBird.log("static-facade-message", additionalInfo: ["count": .int(1)], level: .info)
 
         let secret = "static-secret"
@@ -240,14 +245,14 @@ final class LogBirdTests: XCTestCase {
 
         let logged = LogBird.logs.first { $0.message == "static-facade-message" }
         XCTAssertEqual(logged?.additionalInfo?["count"], .int(1))
-        XCTAssertEqual(LogBird.shared.currentIdentifier, "static-facade")
+        XCTAssertEqual(LogBird.shared.identifier, "static-facade")
         XCTAssertTrue(LogBird.logs.contains { $0.message == "token: <redacted>" })
 
-        XCTAssertFalse(try LogBird.exportLogs().isEmpty)
+        XCTAssertFalse(try LogBird.export().data.isEmpty)
 
         let exportURL = FileManager.default.temporaryDirectory.appendingPathComponent("logbird-static-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: exportURL) }
-        try LogBird.writeLogs(to: exportURL)
+        try LogBird.export(.all, destination: .file(exportURL))
         XCTAssertTrue(FileManager.default.fileExists(atPath: exportURL.path))
 
         LogBird.clearLogs()

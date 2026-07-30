@@ -1,22 +1,27 @@
 //
 //  LBLogRowView.swift
-//  LogBird
+//  LogBirdUI
 //
 //  Created by Javier Manzo on 16/11/2024.
 //
 
 import SwiftUI
+import LogBird
 
+/// SwiftUI row rendering a single log entry with all its sections, tinted by level.
 struct LBLogRowView: View {
     let log: LBLog
 
+    /// Creates a log row view for the given entry.
+    ///
+    /// - Parameter log: `LBLog` — Recorded log entry to display.
     init(log: LBLog) {
         self.log = log
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            let date = LBManager.dateStyle.format(Date(timeIntervalSince1970: log.createdAt))
+            let date = LBLog.dateFormatter.format(Date(timeIntervalSince1970: log.createdAt))
             Header(createdAt: date, level: log.level)
 
             if let message = log.message, !message.isEmpty {

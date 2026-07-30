@@ -1,11 +1,12 @@
 //
 //  LBLogsView.swift
-//  LogBird
+//  LogBirdUI
 //
 //  Created by Javier Manzo on 16/11/2024.
 //
 
 import SwiftUI
+import LogBird
 
 /// SwiftUI view that lists the recorded history, with search, level filter,
 /// export and clear actions.
@@ -24,10 +25,9 @@ public struct LBLogsView: View {
     @State private var exportFile: ExportFile?
     #endif
 
-    /// Creates a logs view backed by the given `LogBird` instance.
+    /// Creates a logs view backed by the given logger instance.
     ///
-    /// The instance is captured when the view is first created. Passing a
-    /// different instance later does not replace the underlying view model.
+    /// - Parameter logBird: `LogBird` — Logger instance backing the view. Defaults to `LogBird.shared`.
     public init(logBird: LogBird = LogBird.shared) {
         _viewModel = StateObject(wrappedValue: LogsViewModel(logBird: logBird))
     }
@@ -124,13 +124,19 @@ public struct LBLogsView: View {
         return count == 1 ? "Export 1 Filtered Log" : "Export \(count) Filtered Logs"
     }
 
+    /// Encodes the visible logs and delivers them per platform: a share sheet
+    /// on iOS, a save panel on macOS. Failures surface in an alert.
     private func exportLogs(format: LBExportFormat) {
         do {
-            let data = try viewModel.exportData(format: format)
             #if os(iOS)
-            exportFile = ExportFile(url: try LBLogExport.writeTemporaryFile(data: data, format: format))
+            let output = try viewModel.export(format: format, destination: .file(nil))
+            if let fileURL = output.fileURL {
+                exportFile = ExportFile(url: fileURL)
+            }
             #elseif os(macOS)
-            LBLogExport.presentSavePanel(data: data, format: format) { error in
+            LBLogExport.presentSavePanel(format: format) { url in
+                try viewModel.export(format: format, destination: .file(url))
+            } onError: { error in
                 exportError = error.localizedDescription
             }
             #endif
@@ -152,6 +158,7 @@ private extension LBExportFormat {
 }
 
 #if os(iOS)
+/// Identifiable wrapper around the exported file URL, used to present the sheet.
 private struct ExportFile: Identifiable {
     let id = UUID()
     let url: URL

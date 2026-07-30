@@ -7,6 +7,8 @@
 
 import Foundation
 
+/// Encodes `[LBLog]` arrays into each `LBExportFormat`. Implementation detail
+/// behind `LogBird.export(_:format:destination:)`.
 enum LBLogExporter {
 
     // Shared across threads — do not mutate after initialization.
@@ -23,6 +25,36 @@ enum LBLogExporter {
         return encoder
     }()
 
+    /// Encodes the given logs in `format` and delivers them to `destination`.
+    ///
+    /// - Parameters:
+    ///   - logs: `[LBLog]` — entries to export.
+    ///   - format: `LBExportFormat` — format to encode.
+    ///   - destination: `LBExportDestination` — `.data` or `.file`.
+    ///   - identifier: `String?` — optional identifier prepended to entries in `.plainText`.
+    /// - Throws: `EncodingError` if a log value cannot be encoded, or file-system error if writing fails.
+    /// - Returns: `LBExportOutput` with the encoded data and, for `.file`, the written URL.
+    static func export(_ logs: [LBLog], format: LBExportFormat, destination: LBExportDestination, identifier: String? = nil) throws -> LBExportOutput {
+        let data = try data(for: logs, format: format, identifier: identifier)
+        switch destination {
+        case .data:
+            return .data(data)
+        case .file(let url):
+            let fileURL = url ?? temporaryURL(for: format)
+            try data.write(to: fileURL, options: .atomic)
+            return .file(fileURL, data: data)
+        }
+    }
+
+    /// Encodes the given logs in the requested format.
+    ///
+    /// - Parameters:
+    ///   - logs: `LBLog` entries to encode, in the order they should appear.
+    ///   - format: `LBExportFormat` — encoding to use.
+    ///   - identifier: `String?` — optional identifier prepended to each
+    ///     entry in `.plainText`, mirroring the OSLog header.
+    /// - Throws: `EncodingError` if a log value cannot be encoded (e.g. non-finite double).
+    /// - Returns: `Data` containing the encoded logs.
     static func data(for logs: [LBLog], format: LBExportFormat, identifier: String? = nil) throws -> Data {
         switch format {
         case .json:
@@ -39,5 +71,20 @@ enum LBLogExporter {
                 .joined(separator: "\n\n")
             return Data(text.utf8)
         }
+    }
+
+    /// A unique URL inside the temporary directory for the given format.
+    static func temporaryURL(for format: LBExportFormat) -> URL {
+        let directory = FileManager.default.temporaryDirectory
+        let name = format.fileName()
+        let base = (name as NSString).deletingPathExtension
+        let ext = format.fileExtension
+        var candidate = name
+        var copy = 2
+        while FileManager.default.fileExists(atPath: directory.appendingPathComponent(candidate).path) {
+            candidate = "\(base)-\(copy).\(ext)"
+            copy += 1
+        }
+        return directory.appendingPathComponent(candidate)
     }
 }

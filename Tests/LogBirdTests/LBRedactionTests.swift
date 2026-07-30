@@ -161,7 +161,7 @@ final class LBRedactionTests: XCTestCase {
 
         logBird.log("auth", additionalInfo: ["token": .string("Bearer abc123")])
 
-        let text = String(decoding: try logBird.exportLogs(format: .plainText), as: UTF8.self)
+        let text = String(decoding: try logBird.export(format: .plainText).data, as: UTF8.self)
         XCTAssertFalse(text.contains("Bearer abc123"))
         XCTAssertTrue(text.contains(LogBird.redactionPlaceholder))
     }
@@ -186,7 +186,7 @@ final class LBRedactionTests: XCTestCase {
 
         logBird.log("auth", additionalInfo: ["token": .string("Bearer abc123")], error: error)
 
-        let json = String(decoding: try logBird.exportLogs(format: .json), as: UTF8.self)
+        let json = String(decoding: try logBird.export(format: .json).data, as: UTF8.self)
         XCTAssertFalse(json.contains("Bearer abc123"))
         XCTAssertFalse(json.contains("shhh"))
         XCTAssertTrue(json.contains("<redacted>"))

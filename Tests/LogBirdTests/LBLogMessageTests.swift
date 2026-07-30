@@ -53,7 +53,7 @@ final class LBLogMessageTests: XCTestCase {
 
         logBird.log("auth with \(token, privacy: .private)")
 
-        let json = String(decoding: try logBird.exportLogs(format: .json), as: UTF8.self)
+        let json = String(decoding: try logBird.export(format: .json).data, as: UTF8.self)
         XCTAssertFalse(json.contains(token))
         XCTAssertTrue(json.contains("<redacted>"))
     }
