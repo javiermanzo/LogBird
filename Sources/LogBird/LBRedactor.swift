@@ -14,18 +14,25 @@ import Foundation
 /// `accessToken`, `access-token` and `ACCESS_TOKEN` all match `token`.
 struct LBRedactor: Sendable {
 
+    /// The string that replaces a redacted value.
     static let placeholder = "<redacted>"
 
+    /// Keys matched by default when redacting sensitive fields.
     static let defaultSensitiveKeys = ["password", "token", "authorization", "secret", "apiKey", "cookie"]
 
+    /// Whether redaction is applied; when `false`, values pass through unchanged.
     let isEnabled: Bool
     private let needles: [String]
 
+    /// Creates a redactor. `sensitiveKeys` are normalized once up front, so
+    /// per-key checks stay cheap.
     init(isEnabled: Bool, sensitiveKeys: [String]) {
         self.isEnabled = isEnabled
         self.needles = sensitiveKeys.map(Self.normalize).filter { !$0.isEmpty }
     }
 
+    /// Replaces values under sensitive keys in `additionalInfo` metadata.
+    /// Returns the input unchanged when redaction is disabled.
     func redact(_ info: [String: LBValue]?) -> [String: LBValue]? {
         guard let info, isEnabled else { return info }
         var redacted = info
@@ -35,6 +42,8 @@ struct LBRedactor: Sendable {
         return redacted
     }
 
+    /// Replaces values under sensitive keys in a stringified `userInfo`.
+    /// Returns the input unchanged when redaction is disabled.
     func redact(_ userInfo: [String: String]?) -> [String: String]? {
         guard let userInfo, isEnabled else { return userInfo }
         var redacted = userInfo
@@ -44,6 +53,8 @@ struct LBRedactor: Sendable {
         return redacted
     }
 
+    /// Replaces the value of every extra message whose key is sensitive.
+    /// Returns the input unchanged when redaction is disabled.
     func redact(_ extraMessages: [LBExtraMessage]?) -> [LBExtraMessage]? {
         guard let extraMessages, isEnabled else { return extraMessages }
         return extraMessages.map { message in
@@ -52,6 +63,8 @@ struct LBRedactor: Sendable {
         }
     }
 
+    /// Whether `key` contains any of the configured sensitive keys, compared
+    /// after normalizing both sides.
     private func isSensitive(_ key: String) -> Bool {
         let key = Self.normalize(key)
         return needles.contains { key.contains($0) }

@@ -125,6 +125,8 @@ public struct LBLogsView: View {
         return count == 1 ? "Export 1 Filtered Log" : "Export \(count) Filtered Logs"
     }
 
+    /// Encodes the visible logs and delivers them per platform: a share sheet
+    /// on iOS, a save panel on macOS. Failures surface in an alert.
     private func exportLogs(format: LBExportFormat) {
         do {
             let data = try viewModel.exportData(format: format)
@@ -153,6 +155,7 @@ private extension LBExportFormat {
 }
 
 #if os(iOS)
+/// Identifiable wrapper around the exported file URL, used to present the sheet.
 private struct ExportFile: Identifiable {
     let id = UUID()
     let url: URL

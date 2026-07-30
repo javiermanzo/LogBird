@@ -8,6 +8,7 @@
 import SwiftUI
 import LogBird
 
+/// SwiftUI row rendering a single log entry with all its sections, tinted by level.
 struct LBLogRowView: View {
     let log: LBLog
 

@@ -15,6 +15,8 @@ import AppKit
 import UniformTypeIdentifiers
 #endif
 
+/// Helpers behind the `LBLogsView` export flow: file naming, temporary files
+/// and the macOS save panel.
 enum LBLogExport {
 
     /// A readable, sortable name such as `logbird-logs-20260729-143052.json`.
@@ -22,6 +24,9 @@ enum LBLogExport {
         "\(timestampBase(for: date)).\(format.fileExtension)"
     }
 
+    /// Writes `data` to a uniquely named temporary file and returns its URL.
+    /// Names follow `logbird-logs-<timestamp>.<ext>`, with a numeric suffix
+    /// when the same timestamp is already taken.
     static func writeTemporaryFile(data: Data, format: LBExportFormat) throws -> URL {
         let directory = FileManager.default.temporaryDirectory
         let base = timestampBase(for: Date())
@@ -36,6 +41,7 @@ enum LBLogExport {
         return url
     }
 
+    /// The `logbird-logs-<timestamp>` base name for a given date.
     private static func timestampBase(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
@@ -45,6 +51,9 @@ enum LBLogExport {
     }
 
     #if os(macOS)
+    /// Presents an `NSSavePanel` with a suggested file name for the format and
+    /// writes `data` to the chosen URL. Write failures are reported through
+    /// `onError`.
     @MainActor
     static func presentSavePanel(data: Data, format: LBExportFormat, onError: @escaping (Error) -> Void) {
         let panel = NSSavePanel()
@@ -60,6 +69,7 @@ enum LBLogExport {
         }
     }
 
+    /// The content type the save panel uses to filter and complete the file name.
     private static func contentType(for format: LBExportFormat) -> UTType {
         switch format {
         case .json:
@@ -76,6 +86,7 @@ enum LBLogExport {
 }
 
 #if os(iOS)
+/// Share sheet presenting the exported log file.
 struct LBActivityView: UIViewControllerRepresentable {
     let activityItems: [Any]
 
