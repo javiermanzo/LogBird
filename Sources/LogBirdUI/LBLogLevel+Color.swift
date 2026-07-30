@@ -8,7 +8,7 @@
 import SwiftUI
 import LogBird
 
-public extension LBLogLevel {
+extension LBLogLevel {
 
     /// Background tint used by `LBLogRowView` for the level.
     var color: Color {
