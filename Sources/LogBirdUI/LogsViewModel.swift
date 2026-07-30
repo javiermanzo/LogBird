@@ -66,8 +66,7 @@ final class LogsViewModel: ObservableObject {
         logsCancellable = logBird.logsPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] event in
-                // Delivery is on the main queue, so the main actor hop is guaranteed.
-                MainActor.assumeIsolated {
+                Task { @MainActor [weak self] in
                     self?.handle(event)
                 }
             }
