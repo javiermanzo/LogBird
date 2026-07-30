@@ -223,7 +223,7 @@ final class LBManagerTests: XCTestCase {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "format")
         let error = NSError(domain: "com.test.network", code: 401, userInfo: ["endpoint": "/login"])
 
-        logBird.setIdentifier("session-7")
+        logBird.identifier = "session-7"
         logBird.log(
             "request failed",
             extraMessages: [LBExtraMessage(key: "latency", value: "240ms")],
@@ -232,7 +232,7 @@ final class LBManagerTests: XCTestCase {
             level: .error
         )
 
-        let message = LBManager.formattedMessage(for: try XCTUnwrap(logBird.logs.first), identifier: logBird.currentIdentifier)
+        let message = LBManager.formattedMessage(for: try XCTUnwrap(logBird.logs.first), identifier: logBird.identifier)
 
         XCTAssertTrue(message.contains("session-7"))
         XCTAssertTrue(message.contains("ERROR LogBird:"))
@@ -318,7 +318,7 @@ final class LBManagerTests: XCTestCase {
 
     func testExportPlainTextIncludesIdentifier() throws {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "export-identifier")
-        logBird.setIdentifier("session-42")
+        logBird.identifier = "session-42"
 
         logBird.log("identified")
 

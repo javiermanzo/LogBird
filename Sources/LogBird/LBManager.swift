@@ -15,7 +15,7 @@ import Combine
 final class LBManager: @unchecked Sendable {
 
     private let logger: Logger
-    private var identifier: String?
+    private var storedIdentifier: String?
     private let dispatchQueue: DispatchQueue = DispatchQueue(label: "com.logbird.accessQueue")
     // Publishing runs on its own serial queue so subscriber callbacks never execute
     // while the state queue is held (avoids re-entrancy deadlocks).
@@ -56,8 +56,10 @@ final class LBManager: @unchecked Sendable {
         }
     }
 
-    var currentIdentifier: String? {
-        dispatchQueue.sync { identifier }
+    /// An optional identifier prepended to each OSLog line.
+    var identifier: String? {
+        get { dispatchQueue.sync { storedIdentifier } }
+        set { dispatchQueue.sync { storedIdentifier = newValue } }
     }
 
     /// Whether values under sensitive keys are redacted before a log is stored.
@@ -80,15 +82,6 @@ final class LBManager: @unchecked Sendable {
         self.logger = Logger(subsystem: source.subsystem, category: source.category)
         self.source = source
         self.storedMaxLogs = max(0, maxLogs)
-    }
-
-    /// Sets an optional identifier prepended to each OSLog line.
-    ///
-    /// - Parameter value: `String?` — identifier to prepend, or `nil` to clear.
-    func setIdentifier(_ value: String?) {
-        dispatchQueue.sync {
-            self.identifier = value
-        }
     }
 
     /// Builds a log, forwards it to OSLog and records it (subject to `maxLogs`).
@@ -130,7 +123,7 @@ final class LBManager: @unchecked Sendable {
 
         // Serialize identifier read and log mutation to keep state consistent.
         dispatchQueue.sync {
-            let logMessage = Self.formattedMessage(for: log, identifier: self.identifier)
+            let logMessage = Self.formattedMessage(for: log, identifier: self.storedIdentifier)
             self.logger.log(level: level.osLogType, "\(logMessage, privacy: .public)")
             self.logs.append(log)
             self.trimLogs()
@@ -157,7 +150,7 @@ final class LBManager: @unchecked Sendable {
     /// - Throws: `EncodingError` if a log value cannot be encoded, or the file-system error if writing fails.
     /// - Returns: `LBExportOutput` with the encoded data and, for `.file`, the written URL.
     func export(_ content: LBExportContent, format: LBExportFormat, destination: LBExportDestination) throws -> LBExportOutput {
-        let (logs, identifier) = dispatchQueue.sync { (self.logs, self.identifier) }
+        let (logs, identifier) = dispatchQueue.sync { (self.logs, self.storedIdentifier) }
         let selected: [LBLog]
         switch content {
         case .all:

@@ -37,7 +37,7 @@ final class LBExportTests: XCTestCase {
 
     func testExportPlainTextAppliesIdentifierToArbitrarySelections() throws {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "export-identifier-selection")
-        logBird.setIdentifier("session-42")
+        logBird.identifier = "session-42"
         logBird.log("identified")
 
         let text = String(decoding: try logBird.export(.logs(logBird.logs), format: .plainText).data, as: UTF8.self)
