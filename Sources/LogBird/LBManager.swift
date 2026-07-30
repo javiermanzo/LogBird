@@ -168,11 +168,11 @@ final class LBManager: @unchecked Sendable {
         let data = try LBLogExporter.data(for: selected, format: format, identifier: identifier)
         switch destination {
         case .data:
-            return LBExportOutput(data: data, fileURL: nil)
+            return .data(data)
         case .file(let url):
             let fileURL = url ?? LBExportFile.temporaryURL(for: format)
             try data.write(to: fileURL, options: .atomic)
-            return LBExportOutput(data: data, fileURL: fileURL)
+            return .file(fileURL, data: data)
         }
     }
 

@@ -66,4 +66,25 @@ final class LBExportTests: XCTestCase {
         XCTAssertTrue(LBExportFile.fileName(for: .jsonLines).hasSuffix(".jsonl"))
         XCTAssertTrue(LBExportFile.fileName(for: .plainText).hasSuffix(".log"))
     }
+
+    func testExportOutputEnumCases() throws {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "export-enum")
+        logBird.log("enum-test")
+
+        let dataOutput = try logBird.export(.all, destination: .data)
+        if case .data(let data) = dataOutput {
+            XCTAssertFalse(data.isEmpty)
+        } else {
+            XCTFail("Expected .data case")
+        }
+
+        let fileOutput = try logBird.export(.all, destination: .file(nil))
+        if case .file(let url, let data) = fileOutput {
+            defer { try? FileManager.default.removeItem(at: url) }
+            XCTAssertFalse(data.isEmpty)
+            XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        } else {
+            XCTFail("Expected .file case")
+        }
+    }
 }
