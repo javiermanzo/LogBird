@@ -21,6 +21,14 @@ public struct LBError: Codable, Hashable, Sendable {
     /// `DecodingError` / `EncodingError`. `nil` when empty.
     public let userInfo: [String: String]?
 
+    /// Creates a captured error details record.
+    ///
+    /// - Parameters:
+    ///   - domain: `String` — `NSError.domain` of the captured error.
+    ///   - code: `Int` — `NSError.code` of the captured error.
+    ///   - type: `String` — Concrete Swift type name of the error.
+    ///   - localizedDescription: `String` — Human-readable error description.
+    ///   - userInfo: `[String: String]?` — Merged error context dictionary, if any.
     package init(domain: String, code: Int, type: String, localizedDescription: String, userInfo: [String: String]? = nil) {
         self.domain = domain
         self.code = code

@@ -12,6 +12,9 @@ import LogBird
 struct LBLogRowView: View {
     let log: LBLog
 
+    /// Creates a log row view for the given entry.
+    ///
+    /// - Parameter log: `LBLog` — Recorded log entry to display.
     init(log: LBLog) {
         self.log = log
     }

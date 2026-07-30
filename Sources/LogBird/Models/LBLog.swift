@@ -31,8 +31,18 @@ public struct LBLog: Codable, Identifiable, Hashable, Sendable {
     /// OSLog subsystem and category the entry was recorded under.
     public let source: LBSource
 
-    /// Creates an entry. `id` defaults to a fresh UUID string; the other
-    /// parameters map one-to-one to the stored properties.
+    /// Creates a recorded log entry.
+    ///
+    /// - Parameters:
+    ///   - id: `String` — Unique entry identifier. Defaults to a fresh UUID string.
+    ///   - level: `LBLogLevel` — Severity level of the entry.
+    ///   - message: `String?` — Free-text message string, if any.
+    ///   - extraMessages: `[LBExtraMessage]?` — Sectioned extra messages array, if any.
+    ///   - additionalInfo: `[String: LBValue]?` — Typed metadata dictionary, if any.
+    ///   - error: `LBError?` — Captured error details, if any.
+    ///   - createdAt: `Double` — Creation timestamp in seconds since Unix epoch.
+    ///   - location: `LBLocation` — Call-site source location record.
+    ///   - source: `LBSource` — Subsystem and category source record.
     package init(
         id: String = UUID().uuidString,
         level: LBLogLevel,

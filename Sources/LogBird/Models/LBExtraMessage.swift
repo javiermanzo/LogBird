@@ -16,7 +16,12 @@ public struct LBExtraMessage: Codable, Identifiable, Sendable {
     /// Section contents.
     public let value: String
 
-    /// Creates an extra message. `id` defaults to a fresh UUID.
+    /// Creates a sectioned extra message entry.
+    ///
+    /// - Parameters:
+    ///   - id: `UUID` — Unique section identifier. Defaults to a fresh UUID.
+    ///   - key: `String` — Section label header.
+    ///   - value: `String` — Section body content.
     public init(id: UUID = UUID(), key: String, value: String) {
         self.id = id
         self.key = key

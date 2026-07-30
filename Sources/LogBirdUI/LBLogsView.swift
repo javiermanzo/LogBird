@@ -25,10 +25,9 @@ public struct LBLogsView: View {
     @State private var exportFile: ExportFile?
     #endif
 
-    /// Creates a logs view backed by the given `LogBird` instance.
+    /// Creates a logs view backed by the given logger instance.
     ///
-    /// The instance is captured when the view is first created. Passing a
-    /// different instance later does not replace the underlying view model.
+    /// - Parameter logBird: `LogBird` — Logger instance backing the view. Defaults to `LogBird.shared`.
     public init(logBird: LogBird = LogBird.shared) {
         _viewModel = StateObject(wrappedValue: LogsViewModel(logBird: logBird))
     }

@@ -14,6 +14,11 @@ public struct LBSource: Codable, Hashable, Sendable {
     /// OSLog category used to scope entries in Console.app.
     public let category: String
 
+    /// Creates a log source record.
+    ///
+    /// - Parameters:
+    ///   - subsystem: `String` — Reverse-DNS subsystem identifier (e.g. `com.example.myapp`).
+    ///   - category: `String` — OSLog category scoping entries in Console.app.
     package init(subsystem: String, category: String) {
         self.subsystem = subsystem
         self.category = category

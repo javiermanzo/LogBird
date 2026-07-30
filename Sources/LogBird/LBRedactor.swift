@@ -24,8 +24,11 @@ struct LBRedactor: Sendable {
     let isEnabled: Bool
     private let needles: [String]
 
-    /// Creates a redactor. `sensitiveKeys` are normalized once up front, so
-    /// per-key checks stay cheap.
+    /// Creates a redactor instance.
+    ///
+    /// - Parameters:
+    ///   - isEnabled: `Bool` — Whether sensitive field redaction is active.
+    ///   - sensitiveKeys: `[String]` — Key substrings matched during redaction.
     init(isEnabled: Bool, sensitiveKeys: [String]) {
         self.isEnabled = isEnabled
         self.needles = sensitiveKeys.map(Self.normalize).filter { !$0.isEmpty }

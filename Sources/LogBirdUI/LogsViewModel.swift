@@ -27,8 +27,9 @@ final class LogsViewModel: ObservableObject {
     private var logsCancellable: AnyCancellable?
     private var logIDs: Set<String> = []
 
-    /// Creates a view model backed by `logBird`, seeding the current history
-    /// and subscribing to new history events.
+    /// Creates a view model backed by the given logger instance.
+    ///
+    /// - Parameter logBird: `LogBird` — Backing logger instance. Defaults to `LogBird.shared`.
     init(logBird: LogBird = LogBird.shared) {
         self.logBird = logBird
         subscribeToLogs()

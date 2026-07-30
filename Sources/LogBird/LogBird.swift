@@ -38,16 +38,10 @@ public class LogBird: @unchecked Sendable {
     /// package-internal call site.
     ///
     /// - Parameters:
-    ///   - subsystem: Reverse-DNS identifier used by OSLog (e.g.
-    ///     `com.example.myapp`). Defaults to the host bundle identifier.
-    ///   - category: OSLog category used to scope entries in Console.app.
-    ///     Pass `nil` (the default) to infer the caller's module name from
-    ///     `fileID`, or a string to pin it.
-    ///   - fileID: `#fileID` at the call site, used only to infer `category`
-    ///     when it is `nil`. You should not need to pass this explicitly.
-    ///   - maxLogs: Maximum number of entries kept in memory. Older entries are
-    ///     discarded first. `0` disables the in-memory history while published
-    ///     events keep flowing. Defaults to `1000`.
+    ///   - subsystem: `String` — Reverse-DNS identifier used by OSLog (e.g. `com.example.myapp`). Defaults to host bundle identifier.
+    ///   - category: `String?` — OSLog category scoping entries in Console.app. Pass `nil` to infer caller module from `fileID`.
+    ///   - fileID: `String` — `#fileID` string at call site, used to infer `category` when `nil`.
+    ///   - maxLogs: `Int` — Maximum history entries kept in memory. `0` disables history retention. Defaults to `1000`.
     public init(
         subsystem: String = resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier),
         category: String? = nil,

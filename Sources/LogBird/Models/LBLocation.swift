@@ -16,6 +16,12 @@ public struct LBLocation: Codable, Hashable, Sendable {
     /// `#line` value at the call site.
     public let line: Int
 
+    /// Creates a source location record.
+    ///
+    /// - Parameters:
+    ///   - file: `String` — `#fileID` value at call site (module/file path).
+    ///   - function: `String` — `#function` name at call site.
+    ///   - line: `Int` — `#line` number at call site.
     package init(file: String, function: String, line: Int) {
         self.file = file
         self.function = function

@@ -75,8 +75,12 @@ final class LBManager: @unchecked Sendable {
         set { dispatchQueue.sync { storedSensitiveKeys = newValue } }
     }
 
-    /// Creates a manager recording under the given `subsystem` and `category`,
-    /// keeping at most `maxLogs` entries in memory.
+    /// Creates a manager instance.
+    ///
+    /// - Parameters:
+    ///   - subsystem: `String` — Reverse-DNS subsystem identifier used by OSLog.
+    ///   - category: `String` — OSLog category scoping entries in Console.app.
+    ///   - maxLogs: `Int` — Maximum history entries kept in memory. Defaults to `1000`.
     init(subsystem: String, category: String, maxLogs: Int = 1000) {
         let source = LBSource(subsystem: subsystem, category: category)
         self.logger = Logger(subsystem: source.subsystem, category: source.category)
