@@ -55,7 +55,7 @@ enum LBLogExporter {
     /// A unique URL inside the temporary directory for the given format.
     static func temporaryURL(for format: LBExportFormat) -> URL {
         let directory = FileManager.default.temporaryDirectory
-        let name = format.suggestedFileName()
+        let name = format.fileName()
         let base = (name as NSString).deletingPathExtension
         let ext = format.fileExtension
         var candidate = name
