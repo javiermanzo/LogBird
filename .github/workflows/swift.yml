@@ -6,8 +6,13 @@ on:
   pull_request:
     branches: [main, 'release/**']
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
+    name: Build & Test (macOS)
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -17,16 +22,19 @@ jobs:
         run: swift test
 
   build-platforms:
+    name: Build (${{ matrix.platform }})
     runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
-        scheme: ['LogBird', 'LogBirdUI']
-        destination:
-          - 'generic/platform=iOS'
-          - 'generic/platform=tvOS'
-          - 'generic/platform=watchOS'
+        include:
+          - platform: 'iOS'
+            destination: 'generic/platform=iOS'
+          - platform: 'tvOS'
+            destination: 'generic/platform=tvOS'
+          - platform: 'watchOS'
+            destination: 'generic/platform=watchOS'
     steps:
       - uses: actions/checkout@v4
-      - name: Build ${{ matrix.scheme }} for ${{ matrix.destination }}
-        run: xcodebuild -scheme ${{ matrix.scheme }} -destination '${{ matrix.destination }}' build CODE_SIGNING_ALLOWED=NO
+      - name: Build LogBird & LogBirdUI for ${{ matrix.platform }}
+        run: xcodebuild -scheme LogBirdUI -destination '${{ matrix.destination }}' build CODE_SIGNING_ALLOWED=NO
