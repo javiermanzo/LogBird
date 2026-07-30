@@ -243,11 +243,11 @@ final class LogBirdTests: XCTestCase {
         XCTAssertEqual(LogBird.shared.currentIdentifier, "static-facade")
         XCTAssertTrue(LogBird.logs.contains { $0.message == "token: <redacted>" })
 
-        XCTAssertFalse(try LogBird.exportLogs().isEmpty)
+        XCTAssertFalse(try LogBird.export().data.isEmpty)
 
         let exportURL = FileManager.default.temporaryDirectory.appendingPathComponent("logbird-static-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: exportURL) }
-        try LogBird.writeLogs(to: exportURL)
+        try LogBird.export(.all, destination: .file(exportURL))
         XCTAssertTrue(FileManager.default.fileExists(atPath: exportURL.path))
 
         LogBird.clearLogs()

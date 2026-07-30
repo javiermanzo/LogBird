@@ -7,7 +7,9 @@
 
 import Foundation
 
-public enum LBLogExporter {
+/// Encodes `[LBLog]` arrays into each `LBExportFormat`. Implementation detail
+/// behind `LogBird.export(_:format:destination:)`.
+enum LBLogExporter {
 
     // Shared across threads — do not mutate after initialization.
     private static let jsonEncoder: JSONEncoder = {
@@ -32,7 +34,7 @@ public enum LBLogExporter {
     ///     entry in `.plainText`, mirroring the OSLog header.
     /// - Throws: `EncodingError` if a log value cannot be encoded (e.g. non-finite double).
     /// - Returns: `Data` containing the encoded logs.
-    public static func data(for logs: [LBLog], format: LBExportFormat, identifier: String? = nil) throws -> Data {
+    static func data(for logs: [LBLog], format: LBExportFormat, identifier: String? = nil) throws -> Data {
         switch format {
         case .json:
             return try jsonEncoder.encode(logs)

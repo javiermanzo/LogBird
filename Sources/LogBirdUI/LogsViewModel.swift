@@ -9,17 +9,26 @@ import Foundation
 import Combine
 import LogBird
 
+/// View model behind `LBLogsView`: mirrors the recorded history (newest
+/// first), applies the search query and level filter, and forwards actions
+/// (clear, export) to the backing `LogBird` instance.
 @MainActor
 final class LogsViewModel: ObservableObject {
 
+    /// The mirrored history, newest first, capped at `maxLogs`.
     @Published var logs: [LBLog] = []
+    /// The current search query; matched against message, metadata, error,
+    /// source and location fields.
     @Published var searchText: String = ""
+    /// The selected level filter, or `nil` to show all levels.
     @Published var levelFilter: LBLogLevel?
 
     private let logBird: LogBird
     private var logsCancellable: AnyCancellable?
     private var logIDs: Set<String> = []
 
+    /// Creates a view model backed by `logBird`, seeding the current history
+    /// and subscribing to new history events.
     init(logBird: LogBird = LogBird.shared) {
         self.logBird = logBird
         subscribeToLogs()
@@ -27,6 +36,7 @@ final class LogsViewModel: ObservableObject {
         logIDs = Set(logs.map(\.id))
     }
 
+    /// The entries matching the current level filter and search query.
     var filteredLogs: [LBLog] {
         logs.filter { log in
             matchesLevelFilter(log) && matchesSearchText(log)
@@ -38,16 +48,20 @@ final class LogsViewModel: ObservableObject {
         levelFilter != nil || !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// Empties the history on the backing `LogBird` and the local mirror.
     func clearLogs() {
         logBird.clearLogs()
         logs = []
         logIDs = []
     }
 
+    /// Encodes `filteredLogs` in the given format — the export covers what the
+    /// list currently shows, not the full history.
     func exportData(format: LBExportFormat = .json) throws -> Data {
-        try LBLogExporter.data(for: filteredLogs, format: format, identifier: logBird.currentIdentifier)
+        try logBird.export(.logs(filteredLogs), format: format).data
     }
 
+    /// Subscribes to `logsPublisher`, redelivering events on the main actor.
     private func subscribeToLogs() {
         logsCancellable = logBird.logsPublisher
             .receive(on: DispatchQueue.main)
@@ -59,6 +73,8 @@ final class LogsViewModel: ObservableObject {
             }
     }
 
+    /// Applies a history event to the mirrored logs, ignoring duplicate
+    /// deliveries and keeping the mirror capped at `maxLogs`.
     func handle(_ event: LBLogEvent) {
         switch event {
         case .recorded(let log):
@@ -84,11 +100,15 @@ final class LogsViewModel: ObservableObject {
         }
     }
 
+    /// Whether the log passes the selected level filter.
     private func matchesLevelFilter(_ log: LBLog) -> Bool {
         guard let levelFilter else { return true }
         return log.level == levelFilter
     }
 
+    /// Whether the log contains the search query in its message, metadata,
+    /// error, source or location fields. Matching is case-insensitive and
+    /// ignores surrounding whitespace.
     private func matchesSearchText(_ log: LBLog) -> Bool {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }

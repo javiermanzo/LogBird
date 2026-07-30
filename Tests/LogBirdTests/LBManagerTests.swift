@@ -283,7 +283,7 @@ final class LBManagerTests: XCTestCase {
             logBird.log("export-\(index)")
         }
 
-        let decoded = try JSONDecoder().decode([LBLog].self, from: logBird.exportLogs(format: .json))
+        let decoded = try JSONDecoder().decode([LBLog].self, from: logBird.export(format: .json).data)
         XCTAssertEqual(decoded.count, 5)
     }
 
@@ -294,7 +294,7 @@ final class LBManagerTests: XCTestCase {
             logBird.log("export-\(index)")
         }
 
-        let text = String(decoding: try logBird.exportLogs(format: .jsonLines), as: UTF8.self)
+        let text = String(decoding: try logBird.export(format: .jsonLines).data, as: UTF8.self)
         XCTAssertTrue(text.hasSuffix("\n"))
 
         let lines = text.split(separator: "\n")
@@ -310,7 +310,7 @@ final class LBManagerTests: XCTestCase {
 
         logBird.log("plain-text-marker", level: .warning)
 
-        let text = String(decoding: try logBird.exportLogs(format: .plainText), as: UTF8.self)
+        let text = String(decoding: try logBird.export(format: .plainText).data, as: UTF8.self)
         XCTAssertTrue(text.contains("plain-text-marker"))
         XCTAssertTrue(text.contains("LogBird:"))
         XCTAssertTrue(text.contains("WARNING"))
@@ -322,29 +322,29 @@ final class LBManagerTests: XCTestCase {
 
         logBird.log("identified")
 
-        let text = String(decoding: try logBird.exportLogs(format: .plainText), as: UTF8.self)
+        let text = String(decoding: try logBird.export(format: .plainText).data, as: UTF8.self)
         XCTAssertTrue(text.contains("session-42"))
     }
 
     func testExportEmptyHistory() throws {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "export-empty")
 
-        let json = try logBird.exportLogs(format: .json)
+        let json = try logBird.export(format: .json).data
         XCTAssertEqual(try JSONDecoder().decode([LBLog].self, from: json).count, 0)
 
-        XCTAssertTrue(try logBird.exportLogs(format: .jsonLines).isEmpty)
-        XCTAssertTrue(try logBird.exportLogs(format: .plainText).isEmpty)
+        XCTAssertTrue(try logBird.export(format: .jsonLines).data.isEmpty)
+        XCTAssertTrue(try logBird.export(format: .plainText).data.isEmpty)
     }
 
     func testExportThrowsOnNonFiniteDouble() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "export-nan")
         logBird.log("nan", additionalInfo: ["ratio": .double(.nan)])
 
-        XCTAssertThrowsError(try logBird.exportLogs(format: .json))
-        XCTAssertThrowsError(try logBird.exportLogs(format: .jsonLines))
+        XCTAssertThrowsError(try logBird.export(format: .json))
+        XCTAssertThrowsError(try logBird.export(format: .jsonLines))
     }
 
-    func testWriteLogsWritesFile() throws {
+    func testExportToFileWritesFile() throws {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "write-logs")
         logBird.log("written")
 
@@ -352,10 +352,45 @@ final class LBManagerTests: XCTestCase {
             .appendingPathComponent("logbird-test-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: url) }
 
-        try logBird.writeLogs(to: url, format: .json)
+        let output = try logBird.export(.all, format: .json, destination: .file(url))
 
-        let decoded = try JSONDecoder().decode([LBLog].self, from: Data(contentsOf: url))
+        XCTAssertEqual(output.fileURL, url)
+        XCTAssertEqual(output.data, try Data(contentsOf: url))
+
+        let decoded = try JSONDecoder().decode([LBLog].self, from: output.data)
         XCTAssertEqual(decoded.count, 1)
         XCTAssertEqual(decoded.first?.message, "written")
+    }
+
+    func testExportToNilFileWritesTemporaryFile() throws {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "write-logs-temp")
+        logBird.log("temporary")
+
+        let output = try logBird.export(.all, format: .json, destination: .file(nil))
+        let url = try XCTUnwrap(output.fileURL)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        XCTAssertEqual(url.deletingLastPathComponent().standardizedFileURL,
+                       FileManager.default.temporaryDirectory.standardizedFileURL)
+        XCTAssertEqual(url.pathExtension, "json")
+        XCTAssertEqual(output.data, try Data(contentsOf: url))
+
+        let decoded = try JSONDecoder().decode([LBLog].self, from: output.data)
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertEqual(decoded.first?.message, "temporary")
+    }
+
+    func testExportToNilFileProducesUniqueTemporaryFiles() throws {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "write-logs-unique")
+        logBird.log("unique")
+
+        let first = try logBird.export(.all, format: .json, destination: .file(nil)).fileURL
+        let second = try logBird.export(.all, format: .json, destination: .file(nil)).fileURL
+        defer {
+            if let first { try? FileManager.default.removeItem(at: first) }
+            if let second { try? FileManager.default.removeItem(at: second) }
+        }
+
+        XCTAssertNotEqual(first, second)
     }
 }

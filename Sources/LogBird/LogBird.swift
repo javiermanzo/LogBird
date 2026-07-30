@@ -151,23 +151,21 @@ public extension LogBird {
         shared.clearLogs()
     }
 
-    /// Exports the recorded history of the shared instance.
-    ///
-    /// - Parameter format: `LBExportFormat` — encoding to use. Defaults to `.json`.
-    /// - Throws: `EncodingError` if a log value cannot be encoded (e.g. non-finite double).
-    /// - Returns: `Data` containing the encoded history.
-    static func exportLogs(format: LBExportFormat = .json) throws -> Data {
-        try shared.exportLogs(format: format)
-    }
-
-    /// Writes the recorded history of the shared instance to `url`.
+    /// Exports logs of the shared instance in the given format and delivers
+    /// them to `destination`.
     ///
     /// - Parameters:
-    ///   - url: `URL` — destination file URL.
+    ///   - content: `LBExportContent` — `.all` (default) exports the recorded
+    ///     history; `.logs` exports an arbitrary selection, e.g. filtered entries.
     ///   - format: `LBExportFormat` — encoding to use. Defaults to `.json`.
-    /// - Throws: `EncodingError` if a value cannot be encoded, or the file-system error if writing fails.
-    static func writeLogs(to url: URL, format: LBExportFormat = .json) throws {
-        try shared.writeLogs(to: url, format: format)
+    ///   - destination: `LBExportDestination` — `.data` (default) only encodes;
+    ///     `.file(url)` also writes atomically to `url`, or to a temporary file
+    ///     named `logbird-logs-<timestamp>.<ext>` when `url` is `nil`.
+    /// - Throws: `EncodingError` if a log value cannot be encoded (e.g. non-finite double), or the file-system error if writing fails.
+    /// - Returns: `LBExportOutput` with the encoded data and, for `.file`, the written URL.
+    @discardableResult
+    static func export(_ content: LBExportContent = .all, format: LBExportFormat = .json, destination: LBExportDestination = .data) throws -> LBExportOutput {
+        try shared.export(content, format: format, destination: destination)
     }
 }
 
@@ -255,23 +253,20 @@ public extension LogBird {
         manager.clearLogs()
     }
 
-    /// Exports the recorded history.
-    ///
-    /// - Parameter format: `LBExportFormat` — encoding to use. Defaults to `.json`.
-    /// - Throws: `EncodingError` if a log value cannot be encoded (e.g. non-finite double).
-    /// - Returns: `Data` containing the encoded history.
-    func exportLogs(format: LBExportFormat = .json) throws -> Data {
-        try manager.exportLogs(format: format)
-    }
-
-    /// Writes the recorded history to `url`.
+    /// Exports logs in the given format and delivers them to `destination`.
     ///
     /// - Parameters:
-    ///   - url: `URL` — destination file URL.
+    ///   - content: `LBExportContent` — `.all` (default) exports the recorded
+    ///     history; `.logs` exports an arbitrary selection, e.g. filtered entries.
     ///   - format: `LBExportFormat` — encoding to use. Defaults to `.json`.
-    /// - Throws: `EncodingError` if a value cannot be encoded, or the file-system error if writing fails.
-    func writeLogs(to url: URL, format: LBExportFormat = .json) throws {
-        try manager.writeLogs(to: url, format: format)
+    ///   - destination: `LBExportDestination` — `.data` (default) only encodes;
+    ///     `.file(url)` also writes atomically to `url`, or to a temporary file
+    ///     named `logbird-logs-<timestamp>.<ext>` when `url` is `nil`.
+    /// - Throws: `EncodingError` if a log value cannot be encoded (e.g. non-finite double), or the file-system error if writing fails.
+    /// - Returns: `LBExportOutput` with the encoded data and, for `.file`, the written URL.
+    @discardableResult
+    func export(_ content: LBExportContent = .all, format: LBExportFormat = .json, destination: LBExportDestination = .data) throws -> LBExportOutput {
+        try manager.export(content, format: format, destination: destination)
     }
 }
 
