@@ -13,22 +13,49 @@ import Combine
 ///
 /// Use the static API (`LogBird.log(_:)`, `LogBird.logs`, ...) for a shared
 /// instance, or create one with `init(subsystem:category:maxLogs:)` for an
-/// isolated subsystem/category pair and history. Instances are thread-safe.
+/// isolated subsystem/category pair and history. Both `subsystem` and
+/// `category` default to sensible, caller-aware values, so `LogBird()` is
+/// usually enough. Instances are thread-safe.
 public class LogBird: @unchecked Sendable {
 
     private let manager: LBManager
 
     /// Creates a logger that records under the given `subsystem` and `category`.
     ///
+    /// Both default to caller-aware values so that `LogBird()` works out of the
+    /// box:
+    ///
+    /// - `subsystem` defaults to `Bundle.main.bundleIdentifier` (falling back
+    ///   to `"com.logbird.default"` where the host bundle provides none). This
+    ///   follows the OSLog convention of one subsystem per app.
+    /// - `category` defaults to the module name of the call site, derived from
+    ///   `fileID` (e.g. a call from `Network/Client.swift` uses `Network`, one
+    ///   from `MyApp/AppDelegate.swift` uses `MyApp`). This scopes entries in
+    ///   Console.app to whoever created the logger, instead of a generic label.
+    ///
+    /// Packages that need a stable, isolated subsystem regardless of host
+    /// (e.g. an SDK) should pass `subsystem` explicitly at a single,
+    /// package-internal call site.
+    ///
     /// - Parameters:
     ///   - subsystem: Reverse-DNS identifier used by OSLog (e.g.
-    ///     `com.example.myapp`).
+    ///     `com.example.myapp`). Defaults to the host bundle identifier.
     ///   - category: OSLog category used to scope entries in Console.app.
+    ///     Pass `nil` (the default) to infer the caller's module name from
+    ///     `fileID`, or a string to pin it.
+    ///   - fileID: `#fileID` at the call site, used only to infer `category`
+    ///     when it is `nil`. You should not need to pass this explicitly.
     ///   - maxLogs: Maximum number of entries kept in memory. Older entries are
     ///     discarded first. `0` disables the in-memory history while published
     ///     events keep flowing. Defaults to `1000`.
-    public init(subsystem: String, category: String, maxLogs: Int = 1000) {
-        manager = LBManager(subsystem: subsystem, category: category, maxLogs: maxLogs)
+    public init(
+        subsystem: String = resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier),
+        category: String? = nil,
+        fileID: String = #fileID,
+        maxLogs: Int = 1000
+    ) {
+        let resolvedCategory = category ?? Self.defaultCategory(fileID: fileID)
+        manager = LBManager(subsystem: subsystem, category: resolvedCategory, maxLogs: maxLogs)
     }
 }
 
@@ -253,8 +280,20 @@ extension LogBird {
 
     /// Returns the bundle identifier to use as subsystem, or a stable default
     /// when the host bundle has none.
+    @usableFromInline
     static func resolvedSubsystem(bundleIdentifier: String?) -> String {
         bundleIdentifier ?? "com.logbird.default"
+    }
+
+    /// Derives a default OSLog category from a `#fileID` value by taking its
+    /// module component. `#fileID` has the form `Module/File.swift`, so the
+    /// result reflects whoever creates the logger instead of a generic label.
+    /// When the value has no module separator the whole string is returned.
+    static func defaultCategory(fileID: String) -> String {
+        if let slash = fileID.firstIndex(of: "/") {
+            return String(fileID[..<slash])
+        }
+        return fileID
     }
 
     /// The identifier currently prepended to each OSLog line, if any.
