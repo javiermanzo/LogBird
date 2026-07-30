@@ -55,10 +55,17 @@ final class LogsViewModel: ObservableObject {
         logIDs = []
     }
 
+    /// Exports `filteredLogs` in the given format to `destination`. The export
+    /// covers what the list currently shows, not the full history.
+    @discardableResult
+    func export(format: LBExportFormat = .json, destination: LBExportDestination = .data) throws -> LBExportOutput {
+        try logBird.export(.logs(filteredLogs), format: format, destination: destination)
+    }
+
     /// Encodes `filteredLogs` in the given format — the export covers what the
     /// list currently shows, not the full history.
     func exportData(format: LBExportFormat = .json) throws -> Data {
-        try logBird.export(.logs(filteredLogs), format: format).data
+        try export(format: format, destination: .data).data
     }
 
     /// Subscribes to `logsPublisher`, redelivering events on the main actor.

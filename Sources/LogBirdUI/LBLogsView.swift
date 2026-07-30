@@ -129,11 +129,15 @@ public struct LBLogsView: View {
     /// on iOS, a save panel on macOS. Failures surface in an alert.
     private func exportLogs(format: LBExportFormat) {
         do {
-            let data = try viewModel.exportData(format: format)
             #if os(iOS)
-            exportFile = ExportFile(url: try LBLogExport.writeTemporaryFile(data: data, format: format))
+            let output = try viewModel.export(format: format, destination: .file(nil))
+            if let fileURL = output.fileURL {
+                exportFile = ExportFile(url: fileURL)
+            }
             #elseif os(macOS)
-            LBLogExport.presentSavePanel(data: data, format: format) { error in
+            LBLogExport.presentSavePanel(format: format) { url in
+                try viewModel.export(format: format, destination: .file(url))
+            } onError: { error in
                 exportError = error.localizedDescription
             }
             #endif

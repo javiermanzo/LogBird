@@ -8,10 +8,10 @@
 import Foundation
 
 /// Naming and temporary-location helpers for exported log files.
-enum LBExportFile {
+public enum LBExportFile {
 
     /// A readable, sortable name such as `logbird-logs-20260729-143052.json`.
-    static func fileName(for format: LBExportFormat, date: Date = Date()) -> String {
+    public static func fileName(for format: LBExportFormat, date: Date = Date()) -> String {
         "\(timestampBase(for: date)).\(format.fileExtension)"
     }
 

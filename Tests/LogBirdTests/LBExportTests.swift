@@ -52,4 +52,18 @@ final class LBExportTests: XCTestCase {
         XCTAssertThrowsError(try logBird.export(.all, format: .json))
         XCTAssertThrowsError(try logBird.export(.all, format: .jsonLines))
     }
+
+    func testFileNameUsesReadableTimestamp() {
+        let name = LBExportFile.fileName(for: .json, date: Date(timeIntervalSince1970: 1_700_000_000))
+
+        XCTAssertNotNil(
+            name.range(of: #"^logbird-logs-\d{8}-\d{6}\.json$"#, options: .regularExpression),
+            "Unexpected file name: \(name)"
+        )
+    }
+
+    func testFileNameUsesFormatExtension() {
+        XCTAssertTrue(LBExportFile.fileName(for: .jsonLines).hasSuffix(".jsonl"))
+        XCTAssertTrue(LBExportFile.fileName(for: .plainText).hasSuffix(".log"))
+    }
 }
