@@ -157,8 +157,8 @@ final class LBLogTests: XCTestCase {
         XCTAssertLessThan(createdAtIndex, idIndex)
     }
 
-    func testDateStyleProducesISO8601Output() {
-        let formatted = LBManager.dateStyle.format(Date(timeIntervalSince1970: 1_700_000_000))
+    func testDateFormatterProducesISO8601Output() {
+        let formatted = LBLog.dateFormatter.format(Date(timeIntervalSince1970: 1_700_000_000))
 
         let pattern = #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}(Z|[+-]\d{2}:?\d{2})$"#
         XCTAssertNotNil(formatted.range(of: pattern, options: .regularExpression), "Unexpected date format: \(formatted)")

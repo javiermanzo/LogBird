@@ -1,11 +1,12 @@
 //
 //  LBLogRowView.swift
-//  LogBird
+//  LogBirdUI
 //
 //  Created by Javier Manzo on 16/11/2024.
 //
 
 import SwiftUI
+import LogBird
 
 struct LBLogRowView: View {
     let log: LBLog
@@ -16,7 +17,7 @@ struct LBLogRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            let date = LBManager.dateStyle.format(Date(timeIntervalSince1970: log.createdAt))
+            let date = LBLog.dateFormatter.format(Date(timeIntervalSince1970: log.createdAt))
             Header(createdAt: date, level: log.level)
 
             if let message = log.message, !message.isEmpty {

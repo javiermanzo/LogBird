@@ -295,8 +295,13 @@ extension LogBird {
         }
         return fileID
     }
+}
 
-    /// The identifier currently prepended to each OSLog line, if any.
+// MARK: Public
+public extension LogBird {
+
+    /// The identifier currently prepended to each OSLog line for this instance,
+    /// if any. Set through `setIdentifier(_:)`.
     var currentIdentifier: String? {
         manager.currentIdentifier
     }

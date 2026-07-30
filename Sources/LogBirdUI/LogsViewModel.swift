@@ -1,12 +1,13 @@
 //
 //  LogsViewModel.swift
-//  LogBird
+//  LogBirdUI
 //
 //  Created by Javier Manzo on 16/11/2024.
 //
 
 import Foundation
 import Combine
+import LogBird
 
 @MainActor
 final class LogsViewModel: ObservableObject {

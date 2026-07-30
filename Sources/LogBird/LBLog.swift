@@ -33,7 +33,7 @@ public struct LBLog: Codable, Identifiable, Hashable, Sendable {
 
     /// Creates an entry. `id` defaults to a fresh UUID string; the other
     /// parameters map one-to-one to the stored properties.
-    init(
+    public init(
         id: String = UUID().uuidString,
         level: LBLogLevel,
         message: String? = nil,
@@ -63,7 +63,7 @@ public struct LBSource: Codable, Hashable, Sendable {
     /// OSLog category used to scope entries in Console.app.
     public let category: String
 
-    init(subsystem: String, category: String) {
+    public init(subsystem: String, category: String) {
         self.subsystem = subsystem
         self.category = category
     }
@@ -78,7 +78,7 @@ public struct LBLocation: Codable, Hashable, Sendable {
     /// `#line` value at the call site.
     public let line: Int
 
-    init(file: String, function: String, line: Int) {
+    public init(file: String, function: String, line: Int) {
         self.file = file
         self.function = function
         self.line = line
@@ -104,7 +104,7 @@ public struct LBError: Codable, Hashable, Sendable {
     /// `DecodingError` / `EncodingError`. `nil` when empty.
     public let userInfo: [String: String]?
 
-    init(domain: String, code: Int, type: String, localizedDescription: String, userInfo: [String: String]? = nil) {
+    public init(domain: String, code: Int, type: String, localizedDescription: String, userInfo: [String: String]? = nil) {
         self.domain = domain
         self.code = code
         self.type = type
@@ -152,6 +152,14 @@ public extension LBLog {
         let data = try Self.prettyJSONEncoder.encode(self)
         return String(decoding: data, as: UTF8.self)
     }
+
+    /// ISO8601 date format used to render `createdAt` for display and OSLog
+    /// output, including fractional seconds and the current time zone.
+    static let dateFormatter: Date.ISO8601FormatStyle = {
+        var style = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+        style.timeZone = .current
+        return style
+    }()
 }
 
 // MARK: Private

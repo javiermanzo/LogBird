@@ -25,7 +25,6 @@ final class LBLogLevelTests: XCTestCase {
             XCTAssertFalse(level.symbolName.isEmpty)
             emojis.insert(level.emoji)
             symbols.insert(level.symbolName)
-            _ = level.color
         }
 
         XCTAssertEqual(emojis.count, LBLogLevel.allCases.count)

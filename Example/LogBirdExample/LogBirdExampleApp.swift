@@ -7,6 +7,7 @@
 
 import SwiftUI
 import LogBird
+import LogBirdUI
 
 @main
 struct LogBirdExampleApp: App {

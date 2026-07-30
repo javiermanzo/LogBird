@@ -1,11 +1,12 @@
 //
 //  LBLogExport.swift
-//  LogBird
+//  LogBirdUI
 //
 //  Created by Javier Manzo on 27/07/2026.
 //
 
 import Foundation
+import LogBird
 #if os(iOS)
 import SwiftUI
 import UIKit

@@ -32,12 +32,6 @@ final class LBManager: @unchecked Sendable {
         dispatchQueue.sync { logs }
     }
 
-    static let dateStyle: Date.ISO8601FormatStyle = {
-        var style = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
-        style.timeZone = .current
-        return style
-    }()
-
     private var storedMaxLogs: Int
     private var storedRedactSensitiveFields: Bool = true
     private var storedSensitiveKeys: [String] = LBRedactor.defaultSensitiveKeys
@@ -312,7 +306,7 @@ final class LBManager: @unchecked Sendable {
         logMessage = "\(logMessage)\(header)"
 
         // Created At
-        let createdAt: String = "Created at:\n\(spacing)\(LBManager.dateStyle.format(Date(timeIntervalSince1970: log.createdAt)))\n"
+        let createdAt: String = "Created at:\n\(spacing)\(LBLog.dateFormatter.format(Date(timeIntervalSince1970: log.createdAt)))\n"
         logMessage = "\(logMessage)\(createdAt)"
 
         // Message

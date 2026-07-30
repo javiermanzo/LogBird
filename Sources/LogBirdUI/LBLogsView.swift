@@ -1,11 +1,12 @@
 //
 //  LBLogsView.swift
-//  LogBird
+//  LogBirdUI
 //
 //  Created by Javier Manzo on 16/11/2024.
 //
 
 import SwiftUI
+import LogBird
 
 /// SwiftUI view that lists the recorded history, with search, level filter,
 /// export and clear actions.

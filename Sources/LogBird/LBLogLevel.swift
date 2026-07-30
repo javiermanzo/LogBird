@@ -7,7 +7,6 @@
 
 import Foundation
 import OSLog
-import SwiftUI
 
 /// Severity of a log entry. Cases are ordered from least to most severe.
 public enum LBLogLevel: String, Codable, CaseIterable, Sendable {
@@ -25,17 +24,6 @@ public extension LBLogLevel {
         case .warning: return "⚠️"
         case .error: return "❌"
         case .critical: return "🚨"
-        }
-    }
-
-    /// Background tint used by `LBLogRowView` for the level.
-    var color: Color {
-        switch self {
-        case .debug: return .secondary
-        case .info: return .blue
-        case .warning: return .yellow
-        case .error: return .orange
-        case .critical: return .red
         }
     }
 

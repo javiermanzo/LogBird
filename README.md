@@ -36,7 +36,7 @@ LogBird is a powerful yet simple logging library for Swift, designed to provide 
 - [x] Multiple log levels
 - [x] Customizable log identifier
 - [x] Combine support via `logsPublisher`
-- [x] SwiftUI `LBLogsView` for log visualization
+- [x] SwiftUI `LBLogsView` for log visualization (in the separate `LogBirdUI` product)
 - [x] Clearable in-memory log history
 
 ## Requirements
@@ -50,6 +50,11 @@ LogBird is a powerful yet simple logging library for Swift, designed to provide 
 ## Installation
 LogBird is distributed as a Swift Package. Add it to your project using [Swift Package Manager](https://swift.org/package-manager/).
 
+The package exposes two products:
+
+- **`LogBird`** — the logging core (recording, history, Combine publisher, OSLog mirroring, export). Depends only on `Foundation`/`Combine`, no SwiftUI. Use this on its own for apps, SDKs, server-side or command-line targets that don't need the built-in UI.
+- **`LogBirdUI`** — the SwiftUI `LBLogsView` for visualizing the recorded history. Depends on `LogBird`. Add it only where you want the debug UI.
+
 ### Swift Package Manager
 Add the following to your `Package.swift` file:
 
@@ -58,6 +63,21 @@ dependencies: [
     .package(url: "https://github.com/javiermanzo/LogBird.git")
 ]
 ```
+
+Then depend on the product(s) you need:
+
+```swift
+.target(
+    name: "MyApp",
+    dependencies: [
+        .product(name: "LogBird", package: "LogBird"),
+        // Add only where the debug UI is wanted:
+        // .product(name: "LogBirdUI", package: "LogBird"),
+    ]
+)
+```
+
+In an Xcode project, add the package and pick `LogBird`, `LogBirdUI`, or both from the **Frameworks, Libraries, and Embedded Content** list.
 
 ## Usage
 
@@ -142,10 +162,12 @@ LogBird.logsPublisher
 The recorded history is always available synchronously via `LogBird.logs` (oldest first, in recording order).
 
 ### SwiftUI View
-Use `LBLogsView` to visualize logs in your app. You can optionally provide a custom `LogBird` instance; by default, it uses the static instance:
+Use `LBLogsView` to visualize logs in your app. It ships in the **`LogBirdUI`** product, so import it where the view is rendered. You can optionally provide a custom `LogBird` instance; by default, it uses the static instance:
 
 ```swift
 import SwiftUI
+import LogBird
+import LogBirdUI
 
 struct ContentView: View {
     var body: some View {
@@ -168,7 +190,7 @@ customLogger.clearLogs()
 - **Storage**: every log is kept in an in-memory history (oldest first, in recording order) capped at `maxLogs` entries. The history is readable synchronously via `logs`; call `clearLogs()` to empty it.
 - **Console output**: under the hood, each entry is also forwarded to `OSLog` (`os.Logger`), so logs are visible in Console.app and via `log stream` under your subsystem and category (pass `--debug` to `log stream` to include debug-level entries).
 - **Combine**: `logsPublisher` emits an `LBLogEvent` for each new entry (`recorded`) and every `clearLogs()` call (`cleared`); earlier events are not replayed to new subscribers. Read `logs` for a synchronous snapshot of the recorded history.
-- **SwiftUI**: `LBLogsView` observes `logsPublisher` through an internal `ObservableObject` view model and re-renders on each new entry.
+- **SwiftUI**: `LBLogsView` (in `LogBirdUI`) observes `logsPublisher` through an internal `ObservableObject` view model and re-renders on each new entry.
 - **Threading**: `LogBird` is safe to call from any thread. Internal state is protected by a serial dispatch queue, and publishing happens on a separate queue so subscriber callbacks never run while the internal lock is held.
 
 ## Contributing

@@ -21,11 +21,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        scheme: ['LogBird', 'LogBirdUI']
         destination:
           - 'generic/platform=iOS'
           - 'generic/platform=tvOS'
           - 'generic/platform=watchOS'
     steps:
       - uses: actions/checkout@v4
-      - name: Build for ${{ matrix.destination }}
-        run: xcodebuild -scheme LogBird -destination '${{ matrix.destination }}' build CODE_SIGNING_ALLOWED=NO
+      - name: Build ${{ matrix.scheme }} for ${{ matrix.destination }}
+        run: xcodebuild -scheme ${{ matrix.scheme }} -destination '${{ matrix.destination }}' build CODE_SIGNING_ALLOWED=NO
