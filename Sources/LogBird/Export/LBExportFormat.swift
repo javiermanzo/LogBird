@@ -16,7 +16,8 @@ public enum LBExportFormat: String, Codable, CaseIterable, Sendable {
     /// The same human-readable text that is sent to OSLog.
     case plainText
 
-    public var fileExtension: String {
+    /// The standard file extension for this export format.
+    package var fileExtension: String {
         switch self {
         case .json: return "json"
         case .jsonLines: return "jsonl"
