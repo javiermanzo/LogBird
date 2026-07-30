@@ -14,7 +14,7 @@ public struct LBSource: Codable, Hashable, Sendable {
     /// OSLog category used to scope entries in Console.app.
     public let category: String
 
-    public init(subsystem: String, category: String) {
+    package init(subsystem: String, category: String) {
         self.subsystem = subsystem
         self.category = category
     }

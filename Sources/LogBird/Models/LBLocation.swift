@@ -16,7 +16,7 @@ public struct LBLocation: Codable, Hashable, Sendable {
     /// `#line` value at the call site.
     public let line: Int
 
-    public init(file: String, function: String, line: Int) {
+    package init(file: String, function: String, line: Int) {
         self.file = file
         self.function = function
         self.line = line

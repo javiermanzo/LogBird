@@ -33,7 +33,7 @@ public struct LBLog: Codable, Identifiable, Hashable, Sendable {
 
     /// Creates an entry. `id` defaults to a fresh UUID string; the other
     /// parameters map one-to-one to the stored properties.
-    public init(
+    package init(
         id: String = UUID().uuidString,
         level: LBLogLevel,
         message: String? = nil,

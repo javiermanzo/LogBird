@@ -21,7 +21,7 @@ public struct LBError: Codable, Hashable, Sendable {
     /// `DecodingError` / `EncodingError`. `nil` when empty.
     public let userInfo: [String: String]?
 
-    public init(domain: String, code: Int, type: String, localizedDescription: String, userInfo: [String: String]? = nil) {
+    package init(domain: String, code: Int, type: String, localizedDescription: String, userInfo: [String: String]? = nil) {
         self.domain = domain
         self.code = code
         self.type = type
