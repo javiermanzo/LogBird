@@ -131,12 +131,12 @@ final class LogBirdTests: XCTestCase {
         XCTAssertEqual(events.count, 3)
     }
 
-    /// `setIdentifier` applies synchronously, so the value is visible to the
+    /// `currentIdentifier` applies synchronously, so the value is visible to the
     /// very next `log(...)` call.
     func testSetIdentifierIsImmediatelyVisible() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "identifier")
 
-        logBird.setIdentifier("session-42")
+        logBird.currentIdentifier = "session-42"
         XCTAssertEqual(logBird.currentIdentifier, "session-42")
 
         logBird.log("hello")
@@ -144,6 +144,11 @@ final class LogBirdTests: XCTestCase {
 
         logBird.setIdentifier(nil)
         XCTAssertNil(logBird.currentIdentifier)
+
+        LogBird.currentIdentifier = "shared-session"
+        XCTAssertEqual(LogBird.currentIdentifier, "shared-session")
+        LogBird.currentIdentifier = nil
+        XCTAssertNil(LogBird.currentIdentifier)
     }
 
     /// The shared instance needs a stable subsystem even where the host bundle

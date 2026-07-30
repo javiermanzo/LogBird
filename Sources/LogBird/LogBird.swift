@@ -117,12 +117,19 @@ public extension LogBird {
         set { shared.sensitiveKeys = newValue }
     }
 
+    /// An optional identifier prepended to each OSLog line for the shared
+    /// instance, such as a session or user id. Set to `nil` to clear.
+    static var currentIdentifier: String? {
+        get { shared.currentIdentifier }
+        set { shared.currentIdentifier = newValue }
+    }
+
     /// Sets an optional identifier prepended to each OSLog line for the shared
     /// instance, such as a session or user id.
     ///
     /// - Parameter identifier: `String?` — identifier to prepend, or `nil` to clear.
     static func setIdentifier(_ identifier: String?) {
-        shared.setIdentifier(identifier)
+        currentIdentifier = identifier
     }
 
     /// Records a log entry on the shared instance.
@@ -219,12 +226,19 @@ public extension LogBird {
         set { manager.sensitiveKeys = newValue }
     }
 
+    /// The identifier prepended to each OSLog line for this instance, if any,
+    /// such as a session or user id. Set to `nil` to clear.
+    var currentIdentifier: String? {
+        get { manager.currentIdentifier }
+        set { manager.setIdentifier(newValue) }
+    }
+
     /// Sets an optional identifier prepended to each OSLog line for this
     /// instance, such as a session or user id.
     ///
     /// - Parameter value: `String?` — identifier to prepend, or `nil` to clear.
     func setIdentifier(_ value: String?) {
-        manager.setIdentifier(value)
+        currentIdentifier = value
     }
 
     /// Records a log entry on this instance.
@@ -292,12 +306,4 @@ extension LogBird {
     }
 }
 
-// MARK: Public
-public extension LogBird {
 
-    /// The identifier currently prepended to each OSLog line for this instance,
-    /// if any. Set through `setIdentifier(_:)`.
-    var currentIdentifier: String? {
-        manager.currentIdentifier
-    }
-}
