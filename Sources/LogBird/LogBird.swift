@@ -129,12 +129,32 @@ public extension LogBird {
     ///   - file: `String` — source file. Defaults to `#fileID`.
     ///   - function: `String` — source function. Defaults to `#function`.
     ///   - line: `Int` — source line. Defaults to `#line`.
+    /// Records a log entry on the shared instance.
+    ///
+    /// - Parameters:
+    ///   - message: `String?` — free-text message. Use `LBLogMessage` to redact sensitive content.
+    ///   - extraMessages: `[LBExtraMessage]?` — labeled strings shown as separate sections.
+    ///   - additionalInfo: `[String: LBValue]?` — typed metadata keyed by name.
+    ///   - error: `Error?` — error to capture.
+    ///   - level: `LBLogLevel` — severity. Defaults to `.debug`.
+    ///   - file: `String` — source file. Defaults to `#fileID`.
+    ///   - function: `String` — source function. Defaults to `#function`.
+    ///   - line: `Int` — source line. Defaults to `#line`.
     static func log(_ message: String? = nil, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
         shared.log(message, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 
-    /// Records a log entry built from a privacy-aware `LBLogMessage`.
-    /// Parameters other than `message` match the `String?` overload.
+    /// Records a log entry built from a privacy-aware `LBLogMessage` on the shared instance.
+    ///
+    /// - Parameters:
+    ///   - message: `LBLogMessage` — privacy-aware interpolated message string.
+    ///   - extraMessages: `[LBExtraMessage]?` — labeled strings shown as separate sections.
+    ///   - additionalInfo: `[String: LBValue]?` — typed metadata keyed by name.
+    ///   - error: `Error?` — error to capture.
+    ///   - level: `LBLogLevel` — severity. Defaults to `.debug`.
+    ///   - file: `String` — source file. Defaults to `#fileID`.
+    ///   - function: `String` — source function. Defaults to `#function`.
+    ///   - line: `Int` — source line. Defaults to `#line`.
     static func log(_ message: LBLogMessage, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
         shared.log(message, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
@@ -234,8 +254,17 @@ public extension LogBird {
         manager.log(message, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
 
-    /// Records a log entry built from a privacy-aware `LBLogMessage`.
-    /// Parameters other than `message` match the `String?` overload.
+    /// Records a log entry built from a privacy-aware `LBLogMessage` on this instance.
+    ///
+    /// - Parameters:
+    ///   - message: `LBLogMessage` — privacy-aware interpolated message string.
+    ///   - extraMessages: `[LBExtraMessage]?` — labeled strings shown as separate sections.
+    ///   - additionalInfo: `[String: LBValue]?` — typed metadata keyed by name.
+    ///   - error: `Error?` — error to capture (includes `DecodingError`/`EncodingError` context).
+    ///   - level: `LBLogLevel` — severity. Defaults to `.debug`.
+    ///   - file: `String` — source file. Defaults to `#fileID`.
+    ///   - function: `String` — source function. Defaults to `#function`.
+    ///   - line: `Int` — source line. Defaults to `#line`.
     func log(_ message: LBLogMessage, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
         manager.log(message.value, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
