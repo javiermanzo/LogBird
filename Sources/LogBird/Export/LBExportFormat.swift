@@ -23,4 +23,13 @@ public enum LBExportFormat: String, Codable, CaseIterable, Sendable {
         case .plainText: return "log"
         }
     }
+
+    /// A readable, sortable file name for this format (e.g. `logbird-logs-20260729-143052.json`).
+    public func suggestedFileName(date: Date = Date()) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return "logbird-logs-\(formatter.string(from: date)).\(fileExtension)"
+    }
 }

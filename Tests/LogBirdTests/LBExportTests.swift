@@ -53,8 +53,8 @@ final class LBExportTests: XCTestCase {
         XCTAssertThrowsError(try logBird.export(.all, format: .jsonLines))
     }
 
-    func testFileNameUsesReadableTimestamp() {
-        let name = LBExportFile.fileName(for: .json, date: Date(timeIntervalSince1970: 1_700_000_000))
+    func testSuggestedFileNameUsesReadableTimestamp() {
+        let name = LBExportFormat.json.suggestedFileName(date: Date(timeIntervalSince1970: 1_700_000_000))
 
         XCTAssertNotNil(
             name.range(of: #"^logbird-logs-\d{8}-\d{6}\.json$"#, options: .regularExpression),
@@ -62,9 +62,9 @@ final class LBExportTests: XCTestCase {
         )
     }
 
-    func testFileNameUsesFormatExtension() {
-        XCTAssertTrue(LBExportFile.fileName(for: .jsonLines).hasSuffix(".jsonl"))
-        XCTAssertTrue(LBExportFile.fileName(for: .plainText).hasSuffix(".log"))
+    func testSuggestedFileNameUsesFormatExtension() {
+        XCTAssertTrue(LBExportFormat.jsonLines.suggestedFileName().hasSuffix(".jsonl"))
+        XCTAssertTrue(LBExportFormat.plainText.suggestedFileName().hasSuffix(".log"))
     }
 
     func testExportOutputEnumCases() throws {

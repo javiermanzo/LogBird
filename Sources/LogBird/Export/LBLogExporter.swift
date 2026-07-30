@@ -51,4 +51,19 @@ enum LBLogExporter {
             return Data(text.utf8)
         }
     }
+
+    /// A unique URL inside the temporary directory for the given format.
+    static func temporaryURL(for format: LBExportFormat) -> URL {
+        let directory = FileManager.default.temporaryDirectory
+        let name = format.suggestedFileName()
+        let base = (name as NSString).deletingPathExtension
+        let ext = format.fileExtension
+        var candidate = name
+        var copy = 2
+        while FileManager.default.fileExists(atPath: directory.appendingPathComponent(candidate).path) {
+            candidate = "\(base)-\(copy).\(ext)"
+            copy += 1
+        }
+        return directory.appendingPathComponent(candidate)
+    }
 }

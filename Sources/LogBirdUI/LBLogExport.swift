@@ -31,7 +31,7 @@ enum LBLogExport {
     ) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [contentType(for: format)]
-        panel.nameFieldStringValue = LBExportFile.fileName(for: format)
+        panel.nameFieldStringValue = format.suggestedFileName()
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             do {

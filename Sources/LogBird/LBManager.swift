@@ -170,7 +170,7 @@ final class LBManager: @unchecked Sendable {
         case .data:
             return .data(data)
         case .file(let url):
-            let fileURL = url ?? LBExportFile.temporaryURL(for: format)
+            let fileURL = url ?? LBLogExporter.temporaryURL(for: format)
             try data.write(to: fileURL, options: .atomic)
             return .file(fileURL, data: data)
         }
