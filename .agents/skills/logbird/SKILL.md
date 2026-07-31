@@ -162,3 +162,10 @@ struct SettingsScreen: View {
 1. **Thread Safety**: Safe to call `LogBird.log(...)` concurrently from any background thread or queue.
 2. **In-Memory Capping**: Controlled by `maxLogs` (default `1000`). Setting `maxLogs = 0` disables in-memory retention while maintaining live Combine event streaming.
 3. **OSLog Subsystem & Category**: Automatically inferred if not explicitly specified. `subsystem` defaults to `Bundle.main.bundleIdentifier`, and `category` defaults to the caller module derived from `#fileID`.
+
+---
+
+## 5. Upgrading from LogBird v1.x
+
+For projects migrating from LogBird 1.x to 2.0.0, refer to the dedicated migration skill at `[.agents/skills/logbird-v1-to-v2/SKILL.md](../logbird-v1-to-v2/SKILL.md)` for detailed breaking change checklists and side-by-side refactoring recipes.
+
