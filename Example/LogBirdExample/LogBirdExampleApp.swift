@@ -7,13 +7,16 @@
 
 import SwiftUI
 import LogBird
+import LogBirdUI
 
 @main
 struct LogBirdExampleApp: App {
 
     init() {
+        LogBird.clearLogs()
+
         let extraMessages: [LBExtraMessage] = [
-            LBExtraMessage(title: "Title Extra", message: "Message extra")
+            LBExtraMessage(key: "Extra key", value: "Extra value")
         ]
 
         for level in LBLogLevel.allCases {
@@ -23,7 +26,7 @@ struct LogBirdExampleApp: App {
         let someError = NSError(domain: "com.myapp.error", code: 500, userInfo: [NSLocalizedDescriptionKey: "Unknown error"])
         LogBird.log("Log Error", error: someError, level: .error)
 
-        LogBird.setIdentifier("🏀")
+        LogBird.identifier = "🏀"
         LogBird.log("Log With Console Identifier")
     }
 
