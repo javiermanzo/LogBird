@@ -6,24 +6,13 @@ final class LBLoggingModeTests: XCTestCase {
 
     // MARK: isEnabled - init & defaults
 
-    /// `LogBird.defaultIsEnabled` is the single compile-time source of truth
-    /// for `isEnabled` defaults and matches the `DEBUG` build configuration.
-    func testDefaultIsEnabledMatchesBuildConfiguration() {
-        #if DEBUG
-        XCTAssertTrue(LogBird.defaultIsEnabled)
-        #else
-        XCTAssertFalse(LogBird.defaultIsEnabled)
-        #endif
-    }
-
-    /// `LBConfig()` and `LogBird(...)` both seed `isEnabled` from
-    /// `LogBird.defaultIsEnabled`, so the three stay in sync.
-    func testDefaultsInheritDefaultIsEnabled() {
+    /// `LBConfig()` and `LogBird(...)` both resolve the `isEnabled` default
+    /// via the same `#if DEBUG` rule, so the two stay in sync.
+    func testConfigAndLoggerDefaultsStayInSync() {
         let config = LBConfig()
         let logger = LogBird(subsystem: "com.logbird.tests", category: "defaults")
 
-        XCTAssertEqual(config.isEnabled, LogBird.defaultIsEnabled)
-        XCTAssertEqual(logger.isEnabled, LogBird.defaultIsEnabled)
+        XCTAssertEqual(config.isEnabled, logger.isEnabled)
     }
 
     /// A logger constructed without explicit flags starts with the build

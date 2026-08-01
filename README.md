@@ -225,7 +225,7 @@ A runtime on/off gate for the whole logger. When `false`, `log(...)` is a no-op 
 
 ```swift
 // Default: enabled under DEBUG, disabled otherwise.
-// LogBird.isEnabled            // == LogBird.defaultIsEnabled
+// LogBird.isEnabled            // == build default (DEBUG)
 
 // Force logging on permanently (e.g. field-debug builds)
 LogBird.isEnabled = true

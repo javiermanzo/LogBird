@@ -424,9 +424,8 @@ extension LBManager {
     }
 
     /// Whether the logger records entries. When `false`, `log(...)` is a no-op:
-    /// nothing is forwarded to OSLog, stored or published. Defaults to the
-    /// value passed at construction (typically `LogBird.defaultIsEnabled`, i.e.
-    /// enabled under `DEBUG` and disabled otherwise).
+    /// nothing is forwarded to OSLog, stored or published. Defaults to enabled
+    /// under `DEBUG` and disabled otherwise.
     ///
     /// Changes apply to the next `log(...)` call. `clearLogs()` and `export()`
     /// are not affected: they always operate on the recorded history.

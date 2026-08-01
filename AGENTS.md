@@ -72,7 +72,7 @@ When modifying or extending LogBird, AI agents MUST preserve the following invar
 
 ### 3.2 Recording Gate (`isEnabled` / `minLogLevel`)
 1. **First thing in `LBManager.log(...)`**: snapshot `storedIsEnabled` and `storedMinLogLevel` in a single `dispatchQueue.sync`, then `return` early when `isEnabled == false` or `level < minLogLevel`. The gate MUST run before building the `LBLog`, forwarding to OSLog, mutating history or publishing — the disabled path performs no work.
-2. **`isEnabled` (master switch)** defaults to `LogBird.defaultIsEnabled`, a compile-time constant resolved via `#if DEBUG` (`true` under DEBUG, `false` otherwise). Because the package is compiled with the host app, the flag reflects the integrator's build configuration. It is a settable `Bool` so integrators can drive it from their own flags/macros or force it on at init.
+2. **`isEnabled` (master switch)** defaults to a compile-time constant resolved via `#if DEBUG` (`true` under DEBUG, `false` otherwise), centralized in `LBConfig.init`. Because the package is compiled with the host app, the flag reflects the integrator's build configuration. It is a settable `Bool` so integrators can drive it from their own flags/macros or force it on at init.
 3. **`minLogLevel` (severity floor)** defaults to `.debug` (everything passes when enabled). Requires `LBLogLevel: Comparable`, ordered by declaration severity (`.debug < .info < .warning < .error < .critical`) via an internal `severityRank` — NOT the alphabetical raw value.
 4. **NOT gated**: `clearLogs()` and `export()` always operate on recorded history regardless of `isEnabled`/`minLogLevel`. Only `log(...)` recording is gated.
 
