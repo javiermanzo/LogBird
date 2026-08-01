@@ -78,12 +78,28 @@ final class LBManager: @unchecked Sendable {
         set { dispatchQueue.sync { storedRedactSensitiveFields = newValue } }
     }
 
-    /// The keys considered sensitive when redacting. Matching is case-insensitive,
-    /// lowercases keys, strips `-`, `_`, and whitespace, and performs substring matching.
-    /// See `LBRedactor` for the matching rules.
+    /// The current sensitive keys used when redacting fields. Read-only.
+    /// Use `sensitiveKeys(_:)` to reconfigure.
     var sensitiveKeys: Set<String> {
-        get { dispatchQueue.sync { storedSensitiveKeys } }
-        set { dispatchQueue.sync { storedSensitiveKeys = newValue } }
+        dispatchQueue.sync { storedSensitiveKeys }
+    }
+
+    /// Configures the sensitive key patterns using the specified action.
+    ///
+    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.reset`, or `.clear`.
+    func sensitiveKeys(_ action: LBSensitiveKeysAction) {
+        dispatchQueue.sync {
+            switch action {
+            case .set(let keys):
+                self.storedSensitiveKeys = keys
+            case .add(let keys):
+                self.storedSensitiveKeys.formUnion(keys)
+            case .reset:
+                self.storedSensitiveKeys = LBRedactor.defaultSensitiveKeys
+            case .clear:
+                self.storedSensitiveKeys.removeAll()
+            }
+        }
     }
 
     /// Whether the logger records entries. When `false`, `log(...)` is a no-op:

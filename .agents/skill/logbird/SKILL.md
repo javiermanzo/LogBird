@@ -62,8 +62,8 @@ logger.log("GET /users 200 OK", level: .info)
 
 #### Key-Based Automatic Redaction
 ```swift
-// Add custom sensitive key patterns (Set<String>)
-LogBird.sensitiveKeys.formUnion(["ssn", "creditCard"])
+// Configure sensitive key patterns (.add, .set, .reset, .clear)
+LogBird.sensitiveKeys(.add(["ssn", "creditCard"]))
 
 // Automatically redacts matching keys in additionalInfo, extraMessages, and error.userInfo
 LogBird.log("Login payload", additionalInfo: [

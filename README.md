@@ -287,9 +287,23 @@ Default sensitive key patterns (`Set<String>`): `"password"`, `"token"`, `"autho
 
 > **Key Normalization**: Keys and needles are automatically lowercased with hyphens (`-`), underscores (`_`), and whitespace removed. Substring matching is applied, so variants like `access_token`, `refresh_token`, `set-cookie`, `x-api-key`, and `private_key` are automatically matched out of the box.
 
+Reconfigure sensitive keys at any time using `LBSensitiveKeysAction`:
+
 ```swift
-// Customize global or per-instance sensitive keys (Set<String>)
-LogBird.sensitiveKeys.formUnion(["ssn", "creditCard", "passcode"])
+// Add new keys to existing defaults
+LogBird.sensitiveKeys(.add(["ssn", "creditCard", "passcode"]))
+
+// Replace sensitive keys entirely
+LogBird.sensitiveKeys(.set(["customSecret"]))
+
+// Reset back to default sensitive keys
+LogBird.sensitiveKeys(.reset)
+
+// Clear all sensitive keys (disable key-based redaction)
+LogBird.sensitiveKeys(.clear)
+
+// Read current sensitive keys set (read-only)
+let currentKeys: Set<String> = LogBird.sensitiveKeys
 
 // Logging dictionary with sensitive keys
 LogBird.log("User login attempt", additionalInfo: [

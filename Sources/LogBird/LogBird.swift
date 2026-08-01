@@ -115,17 +115,24 @@ public extension LogBird {
         set { shared.redactSensitiveFields = newValue }
     }
 
-    /// The keys considered sensitive when redacting. A key is sensitive when its
-    /// normalized representation contains any of these values. Matching is
-    /// case-insensitive and strips underscores (`_`), hyphens (`-`), and whitespace,
-    /// so `accessToken`, `access_token`, `ACCESS-TOKEN`, and `Access Token` all
-    /// match `token`.
-    ///
-    /// Setting this property replaces the default keys; use `.union(...)` or
-    /// `.insert(...)` on `defaultSensitiveKeys` to extend them.
+    /// The current sensitive keys used when redacting fields on the shared instance.
     static var sensitiveKeys: Set<String> {
-        get { shared.sensitiveKeys }
-        set { shared.sensitiveKeys = newValue }
+        shared.sensitiveKeys
+    }
+
+    /// Configures sensitive keys used for automatic field redaction on the shared instance.
+    ///
+    /// Examples:
+    /// ```swift
+    /// LogBird.sensitiveKeys(.add(["ssn", "creditCard"]))
+    /// LogBird.sensitiveKeys(.set(["customKey"]))
+    /// LogBird.sensitiveKeys(.reset)
+    /// LogBird.sensitiveKeys(.clear)
+    /// ```
+    ///
+    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.reset`, or `.clear`.
+    static func sensitiveKeys(_ action: LBSensitiveKeysAction) {
+        shared.sensitiveKeys(action)
     }
 
     /// An optional identifier prepended to each OSLog line for the shared
@@ -268,17 +275,24 @@ public extension LogBird {
         set { manager.redactSensitiveFields = newValue }
     }
 
-    /// The keys considered sensitive when redacting. A key is sensitive when its
-    /// normalized representation contains any of these values. Matching is
-    /// case-insensitive and strips underscores (`_`), hyphens (`-`), and whitespace,
-    /// so `accessToken`, `access_token`, `ACCESS-TOKEN`, and `Access Token` all
-    /// match `token`.
-    ///
-    /// Setting this property replaces the default keys; use `.union(...)` or
-    /// `.insert(...)` on `LogBird.defaultSensitiveKeys` to extend them.
+    /// The current sensitive keys used when redacting fields on this instance.
     var sensitiveKeys: Set<String> {
-        get { manager.sensitiveKeys }
-        set { manager.sensitiveKeys = newValue }
+        manager.sensitiveKeys
+    }
+
+    /// Configures sensitive keys used for automatic field redaction on this instance.
+    ///
+    /// Examples:
+    /// ```swift
+    /// logger.sensitiveKeys(.add(["ssn", "creditCard"]))
+    /// logger.sensitiveKeys(.set(["customKey"]))
+    /// logger.sensitiveKeys(.reset)
+    /// logger.sensitiveKeys(.clear)
+    /// ```
+    ///
+    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.reset`, or `.clear`.
+    func sensitiveKeys(_ action: LBSensitiveKeysAction) {
+        manager.sensitiveKeys(action)
     }
 
     /// An optional identifier prepended to each OSLog line for this instance,
