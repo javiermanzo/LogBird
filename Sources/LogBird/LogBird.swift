@@ -62,13 +62,7 @@ public class LogBird: @unchecked Sendable {
         category: String? = nil,
         fileID: String = #fileID,
         maxLogs: Int = 1000,
-        isEnabled: Bool = {
-            #if DEBUG
-            return true
-            #else
-            return false
-            #endif
-        }(),
+        isEnabled: Bool = LogBird.defaultIsEnabled,
         minLogLevel: LBLogLevel = .debug
     ) {
         self.init(
@@ -87,6 +81,20 @@ public extension LogBird {
     /// `general` as category, or a stable default where the bundle provides
     /// none (e.g. tests or command-line tools).
     static let shared = LogBird(subsystem: resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier), category: "general")
+
+    /// The compile-time default for `isEnabled`: `true` under `DEBUG` and
+    /// `false` otherwise. Because the package is compiled with the host app,
+    /// this reflects the integrator's build configuration.
+    ///
+    /// Use it to seed your own flags, force recording on at construction, or
+    /// compare against the runtime value of `isEnabled`.
+    static let defaultIsEnabled: Bool = {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }()
 
     /// The centralized configuration of the shared logger instance.
     static var config: LBConfig {

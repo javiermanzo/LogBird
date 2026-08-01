@@ -59,20 +59,14 @@ public struct LBConfig: Hashable, Sendable {
     ///
     /// - Parameters:
     ///   - maxLogs: `Int` — Maximum history entries kept in memory. Defaults to `1000`.
-    ///   - isEnabled: `Bool` — Whether recording starts active. Defaults to `true` under `DEBUG`, `false` otherwise.
+    ///   - isEnabled: `Bool` — Whether recording starts active. Defaults to `LogBird.defaultIsEnabled`.
     ///   - minLogLevel: `LBLogLevel` — Minimum severity recorded. Defaults to `.debug`.
     ///   - redactSensitiveFields: `Bool` — Whether to redact sensitive fields. Defaults to `true`.
     ///   - sensitiveKeys: `[String]?` — Custom key patterns considered sensitive. Pass `nil` to inherit global defaults.
     ///   - identifier: `String?` — Optional header identifier string. Defaults to `nil`.
     public init(
         maxLogs: Int = 1000,
-        isEnabled: Bool = {
-            #if DEBUG
-            return true
-            #else
-            return false
-            #endif
-        }(),
+        isEnabled: Bool = LogBird.defaultIsEnabled,
         minLogLevel: LBLogLevel = .debug,
         redactSensitiveFields: Bool = true,
         sensitiveKeys: [String]? = nil,

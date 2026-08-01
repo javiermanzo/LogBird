@@ -150,7 +150,7 @@ if let fileURL = fileOutput.fileURL {
 }
 ```
 
-### 3.7 Embedding SwiftUI Debug Viewer (`LogBirdUI`)
+### 3.8 Embedding SwiftUI Debug Viewer (`LogBirdUI`)
 
 ```swift
 import SwiftUI

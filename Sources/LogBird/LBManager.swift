@@ -98,9 +98,11 @@ final class LBManager: @unchecked Sendable {
                                line: line,
                                redactor: redactor)
 
-        // Serialize identifier read and log mutation to keep state consistent.
+        // Serialize log mutation only: the whole entry (gate, redactor and
+        // identifier) is derived from `configSnapshot` so a concurrent config
+        // change cannot split a single log across two configurations.
         dispatchQueue.sync {
-            let logMessage = Self.formattedMessage(for: log, identifier: self.storedConfig.identifier)
+            let logMessage = Self.formattedMessage(for: log, identifier: configSnapshot.identifier)
             self.logger.log(level: level.osLogType, "\(logMessage, privacy: .public)")
             self.logs.append(log)
             self.trimLogs()
@@ -360,19 +362,6 @@ final class LBManager: @unchecked Sendable {
     }
 }
 
-// MARK: - LogSnapshot
-extension LBManager {
-
-    /// Immutable snapshot of the values read once at the top of `log(...)`:
-    /// the recording gate plus the redaction config. Captured under a single
-    /// `dispatchQueue.sync` so the call site stays off the state queue.
-    struct LogSnapshot {
-        let isEnabled: Bool
-        let minLogLevel: LBLogLevel
-        let redactor: LBRedactor
-    }
-}
-
 // MARK: - Configuration
 extension LBManager {
 
@@ -395,9 +384,10 @@ extension LBManager {
     var maxLogs: Int {
         get { config.maxLogs }
         set {
-            var updated = config
-            updated.maxLogs = newValue
-            config = updated
+            dispatchQueue.sync {
+                self.storedConfig.maxLogs = newValue
+                self.trimLogs()
+            }
         }
     }
 
@@ -405,9 +395,7 @@ extension LBManager {
     var identifier: String? {
         get { config.identifier }
         set {
-            var updated = config
-            updated.identifier = newValue
-            config = updated
+            dispatchQueue.sync { self.storedConfig.identifier = newValue }
         }
     }
 
@@ -415,9 +403,7 @@ extension LBManager {
     var redactSensitiveFields: Bool {
         get { config.redactSensitiveFields }
         set {
-            var updated = config
-            updated.redactSensitiveFields = newValue
-            config = updated
+            dispatchQueue.sync { self.storedConfig.redactSensitiveFields = newValue }
         }
     }
 
@@ -430,7 +416,7 @@ extension LBManager {
     /// Configures the sensitive key patterns using the specified action.
     /// New keys are automatically normalized (lowercased, stripping `-`, `_`, and whitespace).
     ///
-    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.default`, or `.clear`.
+    /// - Parameter action: `LBSensitiveKeysAction` — `.add(keys)`, `.set(keys)`, `.reset`, or `.clear`.
     func sensitiveKeys(_ action: LBSensitiveKeysAction) {
         dispatchQueue.sync {
             self.storedConfig.sensitiveKeys(action)
@@ -447,9 +433,7 @@ extension LBManager {
     var isEnabled: Bool {
         get { config.isEnabled }
         set {
-            var updated = config
-            updated.isEnabled = newValue
-            config = updated
+            dispatchQueue.sync { self.storedConfig.isEnabled = newValue }
         }
     }
 
@@ -460,9 +444,7 @@ extension LBManager {
     var minLogLevel: LBLogLevel {
         get { config.minLogLevel }
         set {
-            var updated = config
-            updated.minLogLevel = newValue
-            config = updated
+            dispatchQueue.sync { self.storedConfig.minLogLevel = newValue }
         }
     }
 }

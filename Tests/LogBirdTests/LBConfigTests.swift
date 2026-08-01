@@ -102,4 +102,66 @@ final class LBConfigTests: XCTestCase {
         XCTAssertEqual(LogBird.minLogLevel, .critical)
         XCTAssertEqual(LogBird.shared.config.minLogLevel, .critical)
     }
+
+    /// Forwarded property setters mutate a single field atomically: writing one
+    /// field must never clobber another field previously set on the same logger.
+    /// This locks in the fix for the read-modify-write TOCTOU race where a
+    /// concurrent change between the getter and setter hops could be reverted.
+    func testForwardedPropertySettersDoNotClobberOtherFields() {
+        let logger = LogBird(subsystem: "com.logbird.tests", category: "atomic-setters")
+        logger.config = LBConfig(
+            maxLogs: 100,
+            isEnabled: false,
+            minLogLevel: .error,
+            redactSensitiveFields: false,
+            identifier: "ORIGINAL"
+        )
+
+        // Toggle each forwarded field independently; the others must remain intact.
+        logger.isEnabled = true
+        XCTAssertEqual(logger.isEnabled, true)
+        XCTAssertEqual(logger.maxLogs, 100)
+        XCTAssertEqual(logger.minLogLevel, .error)
+        XCTAssertFalse(logger.redactSensitiveFields)
+        XCTAssertEqual(logger.identifier, "ORIGINAL")
+
+        logger.maxLogs = 25
+        XCTAssertEqual(logger.maxLogs, 25)
+        XCTAssertTrue(logger.isEnabled)
+        XCTAssertEqual(logger.minLogLevel, .error)
+        XCTAssertFalse(logger.redactSensitiveFields)
+        XCTAssertEqual(logger.identifier, "ORIGINAL")
+
+        logger.minLogLevel = .warning
+        XCTAssertEqual(logger.minLogLevel, .warning)
+        XCTAssertEqual(logger.maxLogs, 25)
+        XCTAssertTrue(logger.isEnabled)
+        XCTAssertEqual(logger.identifier, "ORIGINAL")
+
+        logger.redactSensitiveFields = true
+        XCTAssertTrue(logger.redactSensitiveFields)
+        XCTAssertEqual(logger.maxLogs, 25)
+        XCTAssertEqual(logger.minLogLevel, .warning)
+
+        logger.identifier = "UPDATED"
+        XCTAssertEqual(logger.identifier, "UPDATED")
+        XCTAssertEqual(logger.maxLogs, 25)
+        XCTAssertEqual(logger.minLogLevel, .warning)
+        XCTAssertTrue(logger.redactSensitiveFields)
+    }
+
+    /// `maxLogs` setter trims existing history immediately, matching the
+    /// behavior of the `config` setter.
+    func testMaxLogsSetterTrimsHistory() {
+        let logger = LogBird(subsystem: "com.logbird.tests", category: "trim", isEnabled: true)
+        logger.maxLogs = 1000
+        for index in 0..<10 {
+            logger.log("\(index)")
+        }
+        XCTAssertEqual(logger.logs.count, 10)
+
+        logger.maxLogs = 3
+        XCTAssertEqual(logger.logs.count, 3)
+        XCTAssertEqual(logger.logs.map(\.message), ["7", "8", "9"])
+    }
 }
