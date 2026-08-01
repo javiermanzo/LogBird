@@ -90,13 +90,12 @@ public extension LogBird {
 
     /// Keys matched by default when redacting sensitive fields.
     ///
-    /// Includes curated needles: `"password"`, `"token"`, `"authorization"`, `"auth"`,
-    /// `"secret"`, `"apiKey"`, `"cookie"`, `"bearer"`, `"credentials"`, and `"privateKey"`.
+    /// Includes curated pre-normalized needles: `"password"`, `"token"`, `"authorization"`, `"auth"`,
+    /// `"secret"`, `"apikey"`, `"cookie"`, `"bearer"`, `"credentials"`, and `"privatekey"`.
     ///
-    /// Normalization converts both the key and needles to lowercase and strips hyphens (`-`),
-    /// underscores (`_`), and whitespace characters. Substring matching is then performed,
-    /// so variants like `access_token`, `refresh_token`, `set-cookie`, `x-api-key`,
-    /// and `private_key` are automatically matched.
+    /// Keys supplied via `sensitiveKeys(_:)` are automatically normalized upon insertion (lowercased,
+    /// stripping `-`, `_`, and whitespace). Substring matching is then performed, so variants like
+    /// `access_token`, `refresh_token`, `set-cookie`, `x-api-key`, and `private_key` are automatically matched.
     static let defaultSensitiveKeys: Set<String> = LBRedactor.defaultSensitiveKeys
 
     /// The string that replaces a redacted value.

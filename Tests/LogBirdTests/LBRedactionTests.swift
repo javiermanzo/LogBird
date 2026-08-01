@@ -236,9 +236,19 @@ final class LBRedactionTests: XCTestCase {
     func testDefaultKeysIncludeAllCuratedNeedles() {
         let expectedNeedles: Set<String> = [
             "password", "token", "authorization", "auth", "secret",
-            "apiKey", "cookie", "bearer", "credentials", "privateKey"
+            "apikey", "cookie", "bearer", "credentials", "privatekey"
         ]
         XCTAssertEqual(LogBird.defaultSensitiveKeys, expectedNeedles)
+    }
+
+    func testSensitiveKeysActionNormalizesInputKeys() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-norm-test")
+
+        logBird.sensitiveKeys(.set(["API_KEY", "X-Auth-Token"]))
+        XCTAssertEqual(logBird.sensitiveKeys, ["apikey", "xauthtoken"])
+
+        logBird.sensitiveKeys(.add(["User_SSN"]))
+        XCTAssertEqual(logBird.sensitiveKeys, ["apikey", "xauthtoken", "userssn"])
     }
 
     func testExpandedDefaultKeysMatchCommonVariants() {

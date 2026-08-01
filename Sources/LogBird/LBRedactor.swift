@@ -22,14 +22,14 @@ struct LBRedactor: Sendable {
     /// Keys matched by default when redacting sensitive fields.
     ///
     /// Includes curated needles: `"password"`, `"token"`, `"authorization"`, `"auth"`,
-    /// `"secret"`, `"apiKey"`, `"cookie"`, `"bearer"`, `"credentials"`, and `"privateKey"`.
+    /// `"secret"`, `"apikey"`, `"cookie"`, `"bearer"`, `"credentials"`, and `"privatekey"`.
     ///
-    /// Due to normalization (lowercasing and removal of `-`, `_`, and whitespace) and
-    /// substring matching, variants like `access_token`, `refresh_token`, `set-cookie`,
-    /// `x-api-key`, and `private_key` are automatically matched.
+    /// Keys are pre-normalized (lowercased, without `-`, `_`, or whitespace). Due to substring
+    /// matching, variants like `access_token`, `refresh_token`, `set-cookie`, `x-api-key`,
+    /// and `private_key` are automatically matched.
     static let defaultSensitiveKeys: Set<String> = [
         "password", "token", "authorization", "auth", "secret",
-        "apiKey", "cookie", "bearer", "credentials", "privateKey"
+        "apikey", "cookie", "bearer", "credentials", "privatekey"
     ]
 
     /// Whether redaction is applied; when `false`, values pass through unchanged.
@@ -87,7 +87,7 @@ struct LBRedactor: Sendable {
 
     /// Lowercases and strips separators (`-`, `_`, whitespace), so written variants
     /// of the same key (`api_key`, `x-api-key`, `API KEY`) compare equal.
-    private static func normalize(_ key: String) -> String {
+    static func normalize(_ key: String) -> String {
         key.lowercased().filter { $0 != "_" && $0 != "-" && !$0.isWhitespace }
     }
 }

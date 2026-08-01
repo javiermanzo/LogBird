@@ -283,9 +283,9 @@ LogBird provides two layers of data privacy out of the box:
 
 Key names matching sensitive patterns are automatically redacted in `additionalInfo`, `extraMessages`, and `error.userInfo`.
 
-Default sensitive key patterns (`Set<String>`): `"password"`, `"token"`, `"authorization"`, `"auth"`, `"secret"`, `"apiKey"`, `"cookie"`, `"bearer"`, `"credentials"`, `"privateKey"`.
+Default sensitive key patterns (`Set<String>`): `"password"`, `"token"`, `"authorization"`, `"auth"`, `"secret"`, `"apikey"`, `"cookie"`, `"bearer"`, `"credentials"`, `"privatekey"`.
 
-> **Key Normalization**: Keys and needles are automatically lowercased with hyphens (`-`), underscores (`_`), and whitespace removed. Substring matching is applied, so variants like `access_token`, `refresh_token`, `set-cookie`, `x-api-key`, and `private_key` are automatically matched out of the box.
+> **Key Normalization**: Keys passed via `.add` or `.set` and metadata keys being evaluated are automatically normalized (lowercased, stripping hyphens `-`, underscores `_`, and whitespace). Substring matching is applied, so variants like `access_token`, `refresh_token`, `set-cookie`, `x-api-key`, and `private_key` are automatically matched out of the box.
 
 Reconfigure sensitive keys at any time using `LBSensitiveKeysAction`:
 
