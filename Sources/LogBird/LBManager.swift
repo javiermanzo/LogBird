@@ -36,97 +36,7 @@ final class LBManager: @unchecked Sendable {
         dispatchQueue.sync { logs }
     }
 
-    private var storedConfig: LBConfig
-
-    /// The configuration shaping this logger. Reading and writing are serialized
-    /// on `dispatchQueue`.
-    var config: LBConfig {
-        get { dispatchQueue.sync { storedConfig } }
-        set {
-            dispatchQueue.sync {
-                self.storedConfig = newValue
-                self.trimLogs()
-            }
-        }
-    }
-
-    /// The maximum number of entries kept in memory. Once the limit is reached,
-    /// the oldest entries are discarded. A value of 0 disables retention: the
-    /// history stays empty while published events keep flowing. Negative values
-    /// are treated as 0.
-    var maxLogs: Int {
-        get { config.maxLogs }
-        set {
-            var updated = config
-            updated.maxLogs = newValue
-            config = updated
-        }
-    }
-
-    /// An optional identifier prepended to each OSLog line.
-    var identifier: String? {
-        get { config.identifier }
-        set {
-            var updated = config
-            updated.identifier = newValue
-            config = updated
-        }
-    }
-
-    /// Whether values under sensitive keys are redacted before a log is stored.
-    var redactSensitiveFields: Bool {
-        get { config.redactSensitiveFields }
-        set {
-            var updated = config
-            updated.redactSensitiveFields = newValue
-            config = updated
-        }
-    }
-
-    /// The current sensitive keys used when redacting fields. Read-only.
-    /// Use `sensitiveKeys(_:)` to reconfigure.
-    var sensitiveKeys: Set<String> {
-        config.sensitiveKeys
-    }
-
-    /// Configures the sensitive key patterns using the specified action.
-    /// New keys are automatically normalized (lowercased, stripping `-`, `_`, and whitespace).
-    ///
-    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.default`, or `.clear`.
-    func sensitiveKeys(_ action: LBSensitiveKeysAction) {
-        dispatchQueue.sync {
-            self.storedConfig.sensitiveKeys(action)
-        }
-    }
-
-    /// Whether the logger records entries. When `false`, `log(...)` is a no-op:
-    /// nothing is forwarded to OSLog, stored or published. Defaults to the
-    /// value passed at construction (typically `LogBird.defaultIsEnabled`, i.e.
-    /// enabled under `DEBUG` and disabled otherwise).
-    ///
-    /// Changes apply to the next `log(...)` call. `clearLogs()` and `export()`
-    /// are not affected: they always operate on the recorded history.
-    var isEnabled: Bool {
-        get { config.isEnabled }
-        set {
-            var updated = config
-            updated.isEnabled = newValue
-            config = updated
-        }
-    }
-
-    /// The minimum severity required to record an entry. An entry is recorded
-    /// only when `level >= minLogLevel`; lower-severity entries are dropped
-    /// before any work is done. Defaults to `.debug` (everything passes when
-    /// `isEnabled` is on).
-    var minLogLevel: LBLogLevel {
-        get { config.minLogLevel }
-        set {
-            var updated = config
-            updated.minLogLevel = newValue
-            config = updated
-        }
-    }
+    var storedConfig: LBConfig
 
     /// Creates a manager instance with the given configuration.
     ///
@@ -460,5 +370,99 @@ extension LBManager {
         let isEnabled: Bool
         let minLogLevel: LBLogLevel
         let redactor: LBRedactor
+    }
+}
+
+// MARK: - Configuration
+extension LBManager {
+
+    /// The configuration shaping this logger. Reading and writing are serialized
+    /// on `dispatchQueue`.
+    var config: LBConfig {
+        get { dispatchQueue.sync { storedConfig } }
+        set {
+            dispatchQueue.sync {
+                self.storedConfig = newValue
+                self.trimLogs()
+            }
+        }
+    }
+
+    /// The maximum number of entries kept in memory. Once the limit is reached,
+    /// the oldest entries are discarded. A value of 0 disables retention: the
+    /// history stays empty while published events keep flowing. Negative values
+    /// are treated as 0.
+    var maxLogs: Int {
+        get { config.maxLogs }
+        set {
+            var updated = config
+            updated.maxLogs = newValue
+            config = updated
+        }
+    }
+
+    /// An optional identifier prepended to each OSLog line.
+    var identifier: String? {
+        get { config.identifier }
+        set {
+            var updated = config
+            updated.identifier = newValue
+            config = updated
+        }
+    }
+
+    /// Whether values under sensitive keys are redacted before a log is stored.
+    var redactSensitiveFields: Bool {
+        get { config.redactSensitiveFields }
+        set {
+            var updated = config
+            updated.redactSensitiveFields = newValue
+            config = updated
+        }
+    }
+
+    /// The current sensitive keys used when redacting fields. Read-only.
+    /// Use `sensitiveKeys(_:)` to reconfigure.
+    var sensitiveKeys: Set<String> {
+        config.sensitiveKeys
+    }
+
+    /// Configures the sensitive key patterns using the specified action.
+    /// New keys are automatically normalized (lowercased, stripping `-`, `_`, and whitespace).
+    ///
+    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.default`, or `.clear`.
+    func sensitiveKeys(_ action: LBSensitiveKeysAction) {
+        dispatchQueue.sync {
+            self.storedConfig.sensitiveKeys(action)
+        }
+    }
+
+    /// Whether the logger records entries. When `false`, `log(...)` is a no-op:
+    /// nothing is forwarded to OSLog, stored or published. Defaults to the
+    /// value passed at construction (typically `LogBird.defaultIsEnabled`, i.e.
+    /// enabled under `DEBUG` and disabled otherwise).
+    ///
+    /// Changes apply to the next `log(...)` call. `clearLogs()` and `export()`
+    /// are not affected: they always operate on the recorded history.
+    var isEnabled: Bool {
+        get { config.isEnabled }
+        set {
+            var updated = config
+            updated.isEnabled = newValue
+            config = updated
+        }
+    }
+
+    /// The minimum severity required to record an entry. An entry is recorded
+    /// only when `level >= minLogLevel`; lower-severity entries are dropped
+    /// before any work is done. Defaults to `.debug` (everything passes when
+    /// `isEnabled` is on).
+    var minLogLevel: LBLogLevel {
+        get { config.minLogLevel }
+        set {
+            var updated = config
+            updated.minLogLevel = newValue
+            config = updated
+        }
     }
 }

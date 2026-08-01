@@ -42,7 +42,7 @@ public struct LBConfig: Hashable, Sendable {
     ///   - isEnabled: `Bool` — Whether recording starts active. Defaults to `LogBird.defaultIsEnabled`.
     ///   - minLogLevel: `LBLogLevel` — Minimum severity recorded. Defaults to `.debug`.
     ///   - redactSensitiveFields: `Bool` — Whether to redact sensitive fields. Defaults to `true`.
-    ///   - sensitiveKeys: `Set<String>` — Key patterns considered sensitive. Defaults to `LBRedactor.defaultSensitiveKeys`.
+    ///   - sensitiveKeys: `Set<String>` — Key patterns considered sensitive. Defaults to `LogBird.defaultSensitiveKeys`.
     ///   - identifier: `String?` — Optional header identifier string. Defaults to `nil`.
     public init(
         maxLogs: Int = 1000,

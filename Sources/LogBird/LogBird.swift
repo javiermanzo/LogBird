@@ -133,7 +133,9 @@ public extension LogBird {
         set { shared.redactSensitiveFields = newValue }
     }
 
-    /// The current sensitive keys used when redacting fields on the shared instance.
+    /// The current sensitive key patterns used when redacting fields on the shared instance.
+    /// Read-only. Returns normalized key needles (defaults to `LogBird.defaultSensitiveKeys`).
+    /// Reconfigure using `LogBird.sensitiveKeys(_:)` or `LogBird.config.sensitiveKeys(...)`.
     static var sensitiveKeys: Set<String> {
         shared.sensitiveKeys
     }
@@ -142,11 +144,11 @@ public extension LogBird {
     ///
     /// Examples:
     /// ```swift
-    /// LogBird.sensitiveKeys(.add(["ssn", "creditCard"]))
-    /// LogBird.sensitiveKeys(.set(["customKey"]))
-    /// LogBird.sensitiveKeys(.default)
-    /// LogBird.sensitiveKeys(.default(["customDefault"]))
-    /// LogBird.sensitiveKeys(.clear)
+    /// LogBird.sensitiveKeys(.add(["ssn", "creditCard"]))   // Union with current keys
+    /// LogBird.sensitiveKeys(.set(["customKey"]))           // Replace completely
+    /// LogBird.sensitiveKeys(.default)                      // Reset to standard default needles
+    /// LogBird.sensitiveKeys(.default(["customDefault"]))   // Reset to a custom set of defaults
+    /// LogBird.sensitiveKeys(.clear)                        // Disable key-based redaction
     /// ```
     ///
     /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.default`, `.default(keys)`, or `.clear`.
@@ -300,7 +302,9 @@ public extension LogBird {
         set { manager.redactSensitiveFields = newValue }
     }
 
-    /// The current sensitive keys used when redacting fields on this instance.
+    /// The current sensitive key patterns used when redacting fields on this instance.
+    /// Read-only. Returns normalized key needles (defaults to `LogBird.defaultSensitiveKeys`).
+    /// Reconfigure using `logger.sensitiveKeys(_:)` or `logger.config.sensitiveKeys(...)`.
     var sensitiveKeys: Set<String> {
         manager.sensitiveKeys
     }
