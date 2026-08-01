@@ -18,6 +18,7 @@ This skill provides complete architectural context, API reference, and integrati
 - **Combine Real-Time Publisher**: Stream history events live via `logsPublisher` (`.recorded`, `.cleared`).
 - **Multi-Format Exporting**: Export logs to `.json`, `.jsonLines` (NDJSON), or `.plainText` as `Data` or written to file `URL`.
 - **SwiftUI Debug Viewer**: Ready-made `LBLogsView` with search, level filtering, and platform export triggers.
+- **Build-Aware Recording**: Logging is enabled by default only under `DEBUG`; toggle at runtime via `isEnabled` or filter by minimum severity via `minLogLevel`.
 
 ---
 
@@ -58,7 +59,22 @@ let logger = LogBird(subsystem: "com.myapp.network", category: "HTTPClient", max
 logger.log("GET /users 200 OK", level: .info)
 ```
 
-### 3.3 Privacy & Data Redaction
+### 3.3 Enabling & Filtering Logs
+
+Recording is **on by default only under `DEBUG`** (`LogBird.defaultIsEnabled`, via `#if DEBUG`). Two independent controls shape when and what gets recorded:
+
+```swift
+// Master switch (runtime on/off). Default: enabled under DEBUG, off otherwise.
+LogBird.isEnabled = true                 // force on in release / field builds
+LogBird.isEnabled = FeatureFlags.verbose // drive from your own flags or macros
+
+// Severity threshold (inclusive). Ordered .debug < .info < .warning < .error < .critical
+LogBird.minLogLevel = .warning           // keep warning, error, critical only
+```
+
+Both are settable per-instance and at construction (`isEnabled:` / `minLogLevel:` init params). Changes apply to the next `log(...)` call. When disabled, `log(...)` is a no-op (no OSLog, no storage, no publish). `clearLogs()` and `export()` are **not** gated — they always work on recorded history.
+
+### 3.4 Privacy & Data Redaction
 
 #### Key-Based Automatic Redaction
 ```swift
@@ -79,7 +95,7 @@ LogBird.log("Authenticated with token \(token, privacy: .private)")
 // Stored & displayed as: "Authenticated with token <redacted>"
 ```
 
-### 3.4 Rich Context: Metadata, Labeled Sections, & Errors
+### 3.5 Rich Context: Metadata, Labeled Sections, & Errors
 
 ```swift
 let extraMessages = [
@@ -106,7 +122,7 @@ do {
 }
 ```
 
-### 3.5 Combine Real-Time Event Subscription
+### 3.6 Combine Real-Time Event Subscription
 
 ```swift
 import Combine
@@ -126,7 +142,7 @@ LogBird.logsPublisher
     .store(in: &cancellables)
 ```
 
-### 3.6 Exporting Recorded Logs
+### 3.7 Exporting Recorded Logs
 
 ```swift
 // Export all logs as JSON Data
@@ -140,7 +156,7 @@ if let fileURL = fileOutput.fileURL {
 }
 ```
 
-### 3.7 Embedding SwiftUI Debug Viewer (`LogBirdUI`)
+### 3.8 Embedding SwiftUI Debug Viewer (`LogBirdUI`)
 
 ```swift
 import SwiftUI
@@ -162,6 +178,7 @@ struct SettingsScreen: View {
 1. **Thread Safety**: Safe to call `LogBird.log(...)` concurrently from any background thread or queue.
 2. **In-Memory Capping**: Controlled by `maxLogs` (default `1000`). Setting `maxLogs = 0` disables in-memory retention while maintaining live Combine event streaming.
 3. **OSLog Subsystem & Category**: Automatically inferred if not explicitly specified. `subsystem` defaults to `Bundle.main.bundleIdentifier`, and `category` defaults to the caller module derived from `#fileID`.
+4. **Recording Gate**: `log(...)` checks `isEnabled` and `minLogLevel` first and is a complete no-op when disabled or below the severity floor. By default `isEnabled` is on only under `DEBUG` (`LogBird.defaultIsEnabled`); flip it at runtime or pass `isEnabled: true` at init to force it on. `clearLogs()`/`export()` are never gated.
 
 ---
 

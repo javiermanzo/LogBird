@@ -33,6 +33,10 @@ public class LogBird: @unchecked Sendable {
     ///   from `MyApp/AppDelegate.swift` uses `MyApp`). This scopes entries in
     ///   Console.app to whoever created the logger, instead of a generic label.
     ///
+    /// Recording is **disabled by default outside `DEBUG` builds** (see
+    /// `defaultIsEnabled`). Pass `isEnabled: true` to force it on in release,
+    /// or toggle it later through the `isEnabled` property.
+    ///
     /// Packages that need a stable, isolated subsystem regardless of host
     /// (e.g. an SDK) should pass `subsystem` explicitly at a single,
     /// package-internal call site.
@@ -42,14 +46,18 @@ public class LogBird: @unchecked Sendable {
     ///   - category: `String?` — OSLog category scoping entries in Console.app. Pass `nil` to infer caller module from `fileID`.
     ///   - fileID: `String` — `#fileID` string at call site, used to infer `category` when `nil`.
     ///   - maxLogs: `Int` — Maximum history entries kept in memory. `0` disables history retention. Defaults to `1000`.
+    ///   - isEnabled: `Bool` — Whether recording starts active. Defaults to `defaultIsEnabled` (on under `DEBUG`, off otherwise).
+    ///   - minLogLevel: `LBLogLevel` — Minimum severity recorded. Defaults to `.debug` (everything passes when enabled).
     public init(
         subsystem: String = resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier),
         category: String? = nil,
         fileID: String = #fileID,
-        maxLogs: Int = 1000
+        maxLogs: Int = 1000,
+        isEnabled: Bool = LogBird.defaultIsEnabled,
+        minLogLevel: LBLogLevel = .debug
     ) {
         let resolvedCategory = category ?? Self.defaultCategory(fileID: fileID)
-        manager = LBManager(subsystem: subsystem, category: resolvedCategory, maxLogs: maxLogs)
+        manager = LBManager(subsystem: subsystem, category: resolvedCategory, maxLogs: maxLogs, isEnabled: isEnabled, minLogLevel: minLogLevel)
     }
 }
 
@@ -116,6 +124,48 @@ public extension LogBird {
     static var identifier: String? {
         get { shared.identifier }
         set { shared.identifier = newValue }
+    }
+
+    /// Whether recording is enabled by default for the current build
+    /// configuration: `true` under `DEBUG`, `false` otherwise.
+    ///
+    /// This is the value `LogBird()` and `LogBird.shared` use for `isEnabled`
+    /// out of the box, so the logger records during development and is silent
+    /// in release builds without any configuration. Because the package is
+    /// compiled with the host's configuration, `#if DEBUG` reflects the
+    /// integrating app's build setting.
+    static let defaultIsEnabled: Bool = {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }()
+
+    /// Whether the shared logger records entries. When `false`, `log(...)`
+    /// is a no-op: nothing is forwarded to OSLog, stored or published.
+    ///
+    /// Defaults to `defaultIsEnabled` (on under `DEBUG`, off otherwise). Flip
+    /// it at runtime to enable logging permanently, gate it behind your own
+    /// flags, or drive it from custom build macros.
+    ///
+    /// Changes apply to the next `log(...)` call. `clearLogs()` and `export()`
+    /// always operate on the recorded history regardless of this value.
+    static var isEnabled: Bool {
+        get { shared.isEnabled }
+        set { shared.isEnabled = newValue }
+    }
+
+    /// The minimum severity the shared logger records. An entry is recorded
+    /// only when its `level` is greater than or equal to this value; entries
+    /// below it are dropped before any work is done.
+    ///
+    /// Defaults to `.debug` (everything passes when `isEnabled` is on). Raise
+    /// it to silence noisy levels, e.g. `.warning` keeps only warnings,
+    /// errors and criticals.
+    static var minLogLevel: LBLogLevel {
+        get { shared.minLogLevel }
+        set { shared.minLogLevel = newValue }
     }
 
     /// Records a log entry on the shared instance.
@@ -237,6 +287,32 @@ public extension LogBird {
     var identifier: String? {
         get { manager.identifier }
         set { manager.identifier = newValue }
+    }
+
+    /// Whether this logger records entries. When `false`, `log(...)` is a
+    /// no-op: nothing is forwarded to OSLog, stored or published.
+    ///
+    /// Defaults to `LogBird.defaultIsEnabled` (on under `DEBUG`, off
+    /// otherwise). Flip it at runtime to enable logging permanently, gate it
+    /// behind your own flags, or drive it from custom build macros.
+    ///
+    /// Changes apply to the next `log(...)` call. `clearLogs()` and `export()`
+    /// always operate on the recorded history regardless of this value.
+    var isEnabled: Bool {
+        get { manager.isEnabled }
+        set { manager.isEnabled = newValue }
+    }
+
+    /// The minimum severity this logger records. An entry is recorded only
+    /// when its `level` is greater than or equal to this value; entries below
+    /// it are dropped before any work is done.
+    ///
+    /// Defaults to `.debug` (everything passes when `isEnabled` is on). Raise
+    /// it to silence noisy levels, e.g. `.warning` keeps only warnings,
+    /// errors and criticals.
+    var minLogLevel: LBLogLevel {
+        get { manager.minLogLevel }
+        set { manager.minLogLevel = newValue }
     }
 
     /// Records a log entry on this instance.

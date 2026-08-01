@@ -40,6 +40,16 @@ final class LBManager: @unchecked Sendable {
     private var storedRedactSensitiveFields: Bool = true
     private var storedSensitiveKeys: [String] = LBRedactor.defaultSensitiveKeys
 
+    /// Whether recording is active. When `false`, `log(...)` returns without
+    /// building, forwarding, storing or publishing anything. Toggled through
+    /// the `isEnabled` accessor.
+    private var storedIsEnabled: Bool
+
+    /// The minimum severity a log entry must reach to be recorded. Entries
+    /// whose `level` is below this threshold are dropped before any work is
+    /// done. Toggled through the `minLogLevel` accessor.
+    private var storedMinLogLevel: LBLogLevel
+
     /// The maximum number of entries kept in memory. Once the limit is reached,
     /// the oldest entries are discarded. A value of 0 disables retention: the
     /// history stays empty while published events keep flowing. Negative values
@@ -75,21 +85,53 @@ final class LBManager: @unchecked Sendable {
         set { dispatchQueue.sync { storedSensitiveKeys = newValue } }
     }
 
+    /// Whether the logger records entries. When `false`, `log(...)` is a no-op:
+    /// nothing is forwarded to OSLog, stored or published. Defaults to the
+    /// value passed at construction (typically `LogBird.defaultIsEnabled`, i.e.
+    /// enabled under `DEBUG` and disabled otherwise).
+    ///
+    /// Changes apply to the next `log(...)` call. `clearLogs()` and `export()`
+    /// are not affected: they always operate on the recorded history.
+    var isEnabled: Bool {
+        get { dispatchQueue.sync { storedIsEnabled } }
+        set { dispatchQueue.sync { storedIsEnabled = newValue } }
+    }
+
+    /// The minimum severity required to record an entry. An entry is recorded
+    /// only when `level >= minLogLevel`; lower-severity entries are dropped
+    /// before any work is done. Defaults to `.debug` (everything passes when
+    /// `isEnabled` is on).
+    var minLogLevel: LBLogLevel {
+        get { dispatchQueue.sync { storedMinLogLevel } }
+        set { dispatchQueue.sync { storedMinLogLevel = newValue } }
+    }
+
     /// Creates a manager instance.
     ///
     /// - Parameters:
     ///   - subsystem: `String` — Reverse-DNS subsystem identifier used by OSLog.
     ///   - category: `String` — OSLog category scoping entries in Console.app.
     ///   - maxLogs: `Int` — Maximum history entries kept in memory. Defaults to `1000`.
-    init(subsystem: String, category: String, maxLogs: Int = 1000) {
+    ///   - isEnabled: `Bool` — Whether recording starts active. Defaults to `LogBird.defaultIsEnabled` (on under `DEBUG`).
+    ///   - minLogLevel: `LBLogLevel` — Minimum severity recorded. Defaults to `.debug`.
+    init(subsystem: String,
+         category: String,
+         maxLogs: Int = 1000,
+         isEnabled: Bool = LogBird.defaultIsEnabled,
+         minLogLevel: LBLogLevel = .debug) {
         let source = LBSource(subsystem: subsystem, category: category)
         self.logger = Logger(subsystem: source.subsystem, category: source.category)
         self.source = source
         self.storedMaxLogs = max(0, maxLogs)
+        self.storedIsEnabled = isEnabled
+        self.storedMinLogLevel = minLogLevel
     }
 
     /// Builds a log, forwards it to OSLog and records it (subject to `maxLogs`).
     /// Subscribers receive a `.recorded` event on the publish queue.
+    ///
+    /// Recording is skipped (nothing forwarded, stored or published) when
+    /// `isEnabled` is `false` or when `level` is below `minLogLevel`.
     ///
     /// - Parameters:
     ///   - message: `String?` — free-text message.
@@ -109,10 +151,20 @@ final class LBManager: @unchecked Sendable {
              function: String = #function,
              line: Int = #line) {
 
-        // Snapshot the redaction config so `buildLogData` stays off the state queue.
-        let redactor = dispatchQueue.sync {
-            LBRedactor(isEnabled: self.storedRedactSensitiveFields, sensitiveKeys: self.storedSensitiveKeys)
+        // Snapshot the recording gate and the redaction config in a single
+        // queue hop so `buildLogData` stays off the state queue.
+        let snapshot = dispatchQueue.sync {
+            LogSnapshot(
+                isEnabled: self.storedIsEnabled,
+                minLogLevel: self.storedMinLogLevel,
+                redactor: LBRedactor(isEnabled: self.storedRedactSensitiveFields, sensitiveKeys: self.storedSensitiveKeys)
+            )
         }
+
+        // Gate: bail out before any work when recording is off, or when the
+        // entry is below the configured severity floor. The disabled path
+        // therefore costs a single queue hop.
+        guard snapshot.isEnabled, level >= snapshot.minLogLevel else { return }
 
         // `buildLogData` only reads immutable `source` and the supplied parameters.
         let log = buildLogData(message: message,
@@ -123,7 +175,7 @@ final class LBManager: @unchecked Sendable {
                                file: file,
                                function: function,
                                line: line,
-                               redactor: redactor)
+                               redactor: snapshot.redactor)
 
         // Serialize identifier read and log mutation to keep state consistent.
         dispatchQueue.sync {
@@ -384,5 +436,18 @@ final class LBManager: @unchecked Sendable {
         logMessage = "\(logMessage)\(location)"
 
         return logMessage
+    }
+}
+
+// MARK: - LogSnapshot
+extension LBManager {
+
+    /// Immutable snapshot of the values read once at the top of `log(...)`:
+    /// the recording gate plus the redaction config. Captured under a single
+    /// `dispatchQueue.sync` so the call site stays off the state queue.
+    struct LogSnapshot {
+        let isEnabled: Bool
+        let minLogLevel: LBLogLevel
+        let redactor: LBRedactor
     }
 }

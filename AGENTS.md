@@ -62,7 +62,7 @@ When modifying or extending LogBird, AI agents MUST preserve the following invar
 
 ### 3.1 Concurrency & Thread-Safety Model
 1. **Dual Queue Isolation in `LBManager`**:
-   - `dispatchQueue` (`com.logbird.accessQueue`): Serial queue protecting state reads and mutations (`logs`, `storedMaxLogs`, `storedIdentifier`, `storedRedactSensitiveFields`, `storedSensitiveKeys`).
+   - `dispatchQueue` (`com.logbird.accessQueue`): Serial queue protecting state reads and mutations (`logs`, `storedMaxLogs`, `storedIdentifier`, `storedRedactSensitiveFields`, `storedSensitiveKeys`, `storedIsEnabled`, `storedMinLogLevel`).
    - `publishQueue` (`com.logbird.publishQueue`): Serial queue dedicated exclusively to asynchronous Combine event dispatch (`publishQueue.async { logsSubject.send(event) }`).
    - **CRITICAL RE-ENTRANCY RULE**: Never publish Combine events while holding a lock on `dispatchQueue`. Subscribers may perform logging calls in response to `.recorded` events, which would cause a re-entrancy deadlock if `dispatchQueue` were locked.
 2. **`@unchecked Sendable` Decorator on `LogBird` and `LBManager`**:
@@ -70,7 +70,13 @@ When modifying or extending LogBird, AI agents MUST preserve the following invar
 3. **`@MainActor` Isolation in UI Layer**:
    - `LBLogsView` and `LogsViewModel` are isolated to `@MainActor`. Combine subscriber events received from `publishQueue` are bounced to `DispatchQueue.main` before updating view state.
 
-### 3.2 Privacy & Sensitive Data Redaction
+### 3.2 Recording Gate (`isEnabled` / `minLogLevel`)
+1. **First thing in `LBManager.log(...)`**: snapshot `storedIsEnabled` and `storedMinLogLevel` in a single `dispatchQueue.sync`, then `return` early when `isEnabled == false` or `level < minLogLevel`. The gate MUST run before building the `LBLog`, forwarding to OSLog, mutating history or publishing — the disabled path performs no work.
+2. **`isEnabled` (master switch)** defaults to `LogBird.defaultIsEnabled`, a compile-time constant resolved via `#if DEBUG` (`true` under DEBUG, `false` otherwise). Because the package is compiled with the host app, the flag reflects the integrator's build configuration. It is a settable `Bool` so integrators can drive it from their own flags/macros or force it on at init.
+3. **`minLogLevel` (severity floor)** defaults to `.debug` (everything passes when enabled). Requires `LBLogLevel: Comparable`, ordered by declaration severity (`.debug < .info < .warning < .error < .critical`) via an internal `severityRank` — NOT the alphabetical raw value.
+4. **NOT gated**: `clearLogs()` and `export()` always operate on recorded history regardless of `isEnabled`/`minLogLevel`. Only `log(...)` recording is gated.
+
+### 3.3 Privacy & Sensitive Data Redaction
 1. **Automatic Field Redaction (`LBRedactor`)**:
    - Scans keys in `additionalInfo`, `extraMessages`, and `error.userInfo`.
    - Keys are normalized (lowercased, stripping `_`, `-`, and whitespace).
@@ -79,7 +85,7 @@ When modifying or extending LogBird, AI agents MUST preserve the following invar
    - Uses Swift String Interpolation to replace `.private` interpolations with `LBRedactor.placeholder` during message assembly.
    - Example: `LogBird.log("User \(username, privacy: .private) logged in")`.
 
-### 3.3 Zero Third-Party Dependencies
+### 3.4 Zero Third-Party Dependencies
 - `LogBird` core MUST only rely on `Foundation`, `Combine`, and `OSLog`.
 - `LogBirdUI` MUST only rely on `SwiftUI` and `LogBird`.
 - Do NOT introduce SPM package dependencies.
@@ -99,7 +105,9 @@ public class LogBird: @unchecked Sendable {
         subsystem: String = resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier),
         category: String? = nil,
         fileID: String = #fileID,
-        maxLogs: Int = 1000
+        maxLogs: Int = 1000,
+        isEnabled: Bool = LogBird.defaultIsEnabled,
+        minLogLevel: LBLogLevel = .debug
     )
 
     // Configuration Properties
@@ -107,6 +115,11 @@ public class LogBird: @unchecked Sendable {
     public var redactSensitiveFields: Bool { get set }
     public var sensitiveKeys: [String] { get set }
     public var identifier: String? { get set }
+    public var isEnabled: Bool { get set }            // Recording master switch; default: defaultIsEnabled
+    public var minLogLevel: LBLogLevel { get set }    // Minimum severity recorded; default: .debug
+
+    // Build default
+    public static let defaultIsEnabled: Bool          // true under DEBUG, false otherwise (via #if DEBUG)
 
     // Synchronous Read & Combine Stream
     public var logs: [LBLog] { get }
@@ -130,7 +143,7 @@ public class LogBird: @unchecked Sendable {
 | Model | Conformances | Description |
 | :--- | :--- | :--- |
 | `LBLog` | `Codable, Identifiable, Hashable, Sendable` | Core record: `id`, `level`, `message`, `extraMessages`, `additionalInfo`, `error`, `createdAt`, `location`, `source`. |
-| `LBLogLevel` | `String, Codable, CaseIterable, Sendable` | Severities: `.debug`, `.info`, `.warning`, `.error`, `.critical`. Maps to `OSLogType` & emojis. |
+| `LBLogLevel` | `String, Codable, CaseIterable, Comparable, Sendable` | Severities: `.debug`, `.info`, `.warning`, `.error`, `.critical`. Ordered by severity (not alphabetically) and maps to `OSLogType` & emojis. |
 | `LBValue` | `Codable, Hashable, CustomStringConvertible, Sendable` | Typed metadata: `.string`, `.int`, `.double`, `.bool`, `.url`, `.array`, `.dictionary`. Expressible by literals. |
 | `LBLogMessage` | `ExpressibleByStringInterpolation, Hashable, Sendable` | Custom interpolation wrapper supporting `\(value, privacy: .private)`. |
 | `LBError` | `Codable, Hashable, Sendable` | Captures domain, code, type, localizedDescription, and stringified `userInfo` (merged with `DecodingError` / `EncodingError` context). |

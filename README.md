@@ -29,6 +29,7 @@
   - [Static Logging](#static-logging)
   - [Instance Logging](#instance-logging)
   - [Log Severity Levels](#log-severity-levels)
+  - [Enabling & Filtering Logs](#enabling--filtering-logs)
   - [Rich Metadata & Context](#rich-metadata--context)
   - [Privacy & Sensitive Data Redaction](#privacy--sensitive-data-redaction)
   - [Combine Real-Time Streaming](#combine-real-time-streaming)
@@ -55,6 +56,7 @@
 - 📤 **Multi-Format Log Exporter**: Export stored history or filtered entries to `.json`, `.jsonLines` (NDJSON), or `.plainText` as in-memory `Data` or written to `File`.
 - 📱 **SwiftUI Debug Viewer (`LogBirdUI`)**: Optional, ready-to-use SwiftUI view (`LBLogsView`) with search, level filter, auto-scrolling, clear logs, and OS-native export triggers (iOS Share Sheet, macOS Save Panel).
 - 🧩 **Modular Packaging**: Separate `LogBird` (core logic) and `LogBirdUI` (SwiftUI interface) SPM products.
+- 🚦 **Build-Aware Recording**: Logging is enabled by default only under `DEBUG` and can be toggled at runtime or filtered by minimum severity — no code changes needed to stay silent in release.
 
 ---
 
@@ -190,6 +192,54 @@ Supported levels in `LBLogLevel` (ordered from lowest to highest severity):
 | `.warning` | ⚠️ | `exclamationmark.triangle` | Potential issues or non-fatal anomalies. |
 | `.error` | ❌ | `xmark.octagon` | Standard runtime errors and handled failures. |
 | `.critical` | 🚨 | `flame` | Severe system failures requiring immediate action. |
+
+### Enabling & Filtering Logs
+
+LogBird is **silent by default in release builds**: recording is enabled only under `DEBUG` (via `#if DEBUG`), so no extra setup is needed to keep production quiet. Two independent controls let you shape when and what gets recorded.
+
+#### Master Switch: `isEnabled`
+
+A runtime on/off gate for the whole logger. When `false`, `log(...)` is a no-op — nothing is forwarded to OSLog, stored, or published.
+
+```swift
+// Default: enabled under DEBUG, disabled otherwise.
+// LogBird.isEnabled            // == LogBird.defaultIsEnabled
+
+// Force logging on permanently (e.g. field-debug builds)
+LogBird.isEnabled = true
+
+// Drive it from your own flags or custom build macros
+#if INTERNAL_BETA
+LogBird.isEnabled = true
+#endif
+
+LogBird.isEnabled = FeatureFlags.verboseLogging
+```
+
+Per-instance works the same way, and you can set it at construction:
+
+```swift
+let logger = LogBird(subsystem: "com.myapp.network", category: "HTTP", isEnabled: true)
+```
+
+#### Severity Threshold: `minLogLevel`
+
+Keep only entries at or above a severity. Lower-severity entries are dropped before any work is done. `LBLogLevel` is ordered `.debug < .info < .warning < .error < .critical`.
+
+```swift
+// Silence debug & info; keep warning, error and critical
+LogBird.minLogLevel = .warning
+
+// Reset to record everything (default)
+LogBird.minLogLevel = .debug
+```
+
+#### Notes
+
+- Changes apply to the **next** `log(...)` call.
+- `isEnabled` wins over `minLogLevel`: when disabled, nothing is recorded regardless of the floor.
+- `clearLogs()` and `export()` are **not** gated — they always operate on the recorded history, so you can still read or reset it while logging is off.
+- The DEBUG default uses the host app's build configuration, since the package is compiled together with it.
 
 ### Rich Metadata & Context
 
@@ -352,6 +402,7 @@ customLogger.clearLogs()
 ## How It Works
 
 - **Storage**: Entries are stored in a bounded in-memory array (`[LBLog]`) capped at `maxLogs` (default `1000`). Trimming happens automatically when the limit is exceeded. Setting `maxLogs = 0` turns off in-memory storage while keeping Combine streaming active.
+- **Recording Gate**: Every `log(...)` call is checked against `isEnabled` and `minLogLevel` first. Recording is skipped entirely (no OSLog forward, no storage, no publish) when the logger is off or the entry is below the severity floor. By default `isEnabled` is on only under `DEBUG`.
 - **System Logging**: Every entry is formatted into a readable block and forwarded to Apple's native `os.Logger`. View output in macOS Console.app or run `log stream --subsystem com.myapp` in Terminal.
 - **Thread Safety**: All state reads and writes are guarded by an internal serial queue (`com.logbird.accessQueue`). Combine event dispatching runs asynchronously on a separate serial queue (`com.logbird.publishQueue`) to avoid re-entrancy deadlocks when subscriber callbacks trigger subsequent log calls.
 
