@@ -153,7 +153,8 @@ final class LBConfigTests: XCTestCase {
     /// `maxLogs` setter trims existing history immediately, matching the
     /// behavior of the `config` setter.
     func testMaxLogsSetterTrimsHistory() {
-        let logger = LogBird(subsystem: "com.logbird.tests", category: "trim", isEnabled: true)
+        let logger = LogBird(subsystem: "com.logbird.tests", category: "trim")
+        logger.isEnabled = true
         logger.maxLogs = 1000
         for index in 0..<10 {
             logger.log("\(index)")

@@ -56,20 +56,23 @@ public class LogBird: @unchecked Sendable {
         manager = LBManager(subsystem: subsystem, category: resolvedCategory, config: config)
     }
 
-    /// Convenience initializer supporting direct parameter overrides.
+    /// Convenience initializer supporting direct parameter overrides for the
+    /// most common tuning knobs. The recording master switch (`isEnabled`) is
+    /// not exposed here: it defaults to the build configuration and can be
+    /// flipped at runtime through the `isEnabled` property, e.g.
+    /// `let logger = LogBird(...); logger.isEnabled = false`.
     public convenience init(
         subsystem: String = resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier),
         category: String? = nil,
         fileID: String = #fileID,
         maxLogs: Int = 1000,
-        isEnabled: Bool = LBConfig().isEnabled,
         minLogLevel: LBLogLevel = .debug
     ) {
         self.init(
             subsystem: subsystem,
             category: category,
             fileID: fileID,
-            config: LBConfig(maxLogs: maxLogs, isEnabled: isEnabled, minLogLevel: minLogLevel)
+            config: LBConfig(maxLogs: maxLogs, minLogLevel: minLogLevel)
         )
     }
 }

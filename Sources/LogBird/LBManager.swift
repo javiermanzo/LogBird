@@ -15,7 +15,6 @@ import Combine
 final class LBManager: @unchecked Sendable {
 
     private let logger: Logger
-    private var storedIdentifier: String?
     private let dispatchQueue: DispatchQueue = DispatchQueue(label: "com.logbird.accessQueue")
     // Publishing runs on its own serial queue so subscriber callbacks never execute
     // while the state queue is held (avoids re-entrancy deadlocks).

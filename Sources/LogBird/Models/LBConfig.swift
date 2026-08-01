@@ -8,7 +8,7 @@
 import Foundation
 
 /// State tracking whether sensitive keys inherit global defaults or use an explicit custom set.
-public enum LBSensitiveKeysState: Hashable, Sendable {
+enum LBSensitiveKeysState: Hashable, Sendable {
     /// Inherits global default sensitive key patterns plus optional custom additions.
     case inheritingDefaults(custom: Set<String>)
 

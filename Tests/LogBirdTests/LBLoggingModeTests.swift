@@ -28,15 +28,6 @@ final class LBLoggingModeTests: XCTestCase {
         XCTAssertEqual(logBird.minLogLevel, .debug)
     }
 
-    /// Explicit `isEnabled` at construction is honored.
-    func testInitExplicitIsEnabledIsHonored() {
-        let onByForce = LogBird(subsystem: "com.logbird.tests", category: "force-on", isEnabled: true)
-        let offByForce = LogBird(subsystem: "com.logbird.tests", category: "force-off", isEnabled: false)
-
-        XCTAssertTrue(onByForce.isEnabled)
-        XCTAssertFalse(offByForce.isEnabled)
-    }
-
     /// Explicit `minLogLevel` at construction is honored.
     func testInitExplicitMinLogLevelIsHonored() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "floor", minLogLevel: .warning)

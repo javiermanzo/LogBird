@@ -238,10 +238,11 @@ LogBird.isEnabled = true
 LogBird.isEnabled = FeatureFlags.verboseLogging
 ```
 
-Per-instance works the same way, and you can set it at construction:
+Per-instance works the same way — flip the property right after construction:
 
 ```swift
-let logger = LogBird(subsystem: "com.myapp.network", category: "HTTP", isEnabled: true)
+let logger = LogBird(subsystem: "com.myapp.network", category: "HTTP")
+logger.isEnabled = true
 ```
 
 #### Severity Threshold: `minLogLevel`
