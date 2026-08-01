@@ -114,17 +114,15 @@ public class LogBird: @unchecked Sendable {
     public var config: LBConfig { get set }
     public var maxLogs: Int { get set }
     public var redactSensitiveFields: Bool { get set }
-    public static let defaultSensitiveKeys: Set<String>
+    public static func setDefaultSensitiveKeys(_ keys: [String])
+    public static var defaultSensitiveKeys: Set<String> { get }
     public static var sensitiveKeys: Set<String> { get }
     public static func sensitiveKeys(_ action: LBSensitiveKeysAction)
     public var sensitiveKeys: Set<String> { get }
     public func sensitiveKeys(_ action: LBSensitiveKeysAction)
     public var identifier: String? { get set }
-    public var isEnabled: Bool { get set }            // Recording master switch; default: defaultIsEnabled
+    public var isEnabled: Bool { get set }            // Recording master switch; default: true under DEBUG, false otherwise
     public var minLogLevel: LBLogLevel { get set }    // Minimum severity recorded; default: .debug
-
-    // Build default
-    public static let defaultIsEnabled: Bool          // true under DEBUG, false otherwise (via #if DEBUG)
 
     // Synchronous Read & Combine Stream
     public var logs: [LBLog] { get }
@@ -153,7 +151,7 @@ public class LogBird: @unchecked Sendable {
 | `LBValue` | `Codable, Hashable, CustomStringConvertible, Sendable` | Typed metadata: `.string`, `.int`, `.double`, `.bool`, `.url`, `.array`, `.dictionary`. Expressible by literals. |
 | `LBLogMessage` | `ExpressibleByStringInterpolation, Hashable, Sendable` | Custom interpolation wrapper supporting `\(value, privacy: .private)`. |
 | `LBError` | `Codable, Hashable, Sendable` | Captures domain, code, type, localizedDescription, and stringified `userInfo` (merged with `DecodingError` / `EncodingError` context). |
-| `LBSensitiveKeysAction` | `Hashable, Sendable` | Action enum for key redaction configuration: `.set(Set<String>)`, `.add(Set<String>)`, `.default`, `.default(Set<String>)`, `.clear`. |
+| `LBSensitiveKeysAction` | `Hashable, Sendable` | Action enum for instance redaction configuration: `.add([String])`, `.set([String])`, `.reset`, `.clear`. |
 | `LBExportFormat` | `String, Codable, CaseIterable, Sendable` | Encoding formats: `.json`, `.jsonLines` (NDJSON), `.plainText`. |
 | `LBExportOutput` | `Sendable, Equatable` | Result enum: `.data(Data)` or `.file(URL, data: Data)`. |
 

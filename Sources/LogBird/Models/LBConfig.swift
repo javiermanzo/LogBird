@@ -7,6 +7,15 @@
 
 import Foundation
 
+/// State tracking whether sensitive keys inherit global defaults or use an explicit custom set.
+public enum LBSensitiveKeysState: Hashable, Sendable {
+    /// Inherits global default sensitive key patterns plus optional custom additions.
+    case inheritingDefaults(custom: Set<String>)
+
+    /// Custom explicit override set (bypasses global defaults).
+    case explicit(Set<String>)
+}
+
 /// Centralized configuration shaping a `LogBird` logger instance.
 public struct LBConfig: Hashable, Sendable {
 
@@ -25,10 +34,21 @@ public struct LBConfig: Hashable, Sendable {
     /// Whether values under sensitive keys are redacted before storing.
     public var redactSensitiveFields: Bool
 
-    /// Key patterns matched when redacting sensitive fields.
+    /// Internal state tracking sensitive keys mode.
+    private var sensitiveKeysState: LBSensitiveKeysState
+
+    /// Key patterns matched when redacting sensitive fields on this logger instance.
     public var sensitiveKeys: Set<String> {
-        didSet {
-            sensitiveKeys = Set(sensitiveKeys.map(LBRedactor.normalize).filter { !$0.isEmpty })
+        get {
+            switch sensitiveKeysState {
+            case .inheritingDefaults(let custom):
+                return LBRedactor.globalDefaultSensitiveKeys.union(custom)
+            case .explicit(let explicitSet):
+                return explicitSet
+            }
+        }
+        set {
+            self.sensitiveKeysState = .explicit(Set(newValue.map(LBRedactor.normalize).filter { !$0.isEmpty }))
         }
     }
 
@@ -39,40 +59,57 @@ public struct LBConfig: Hashable, Sendable {
     ///
     /// - Parameters:
     ///   - maxLogs: `Int` — Maximum history entries kept in memory. Defaults to `1000`.
-    ///   - isEnabled: `Bool` — Whether recording starts active. Defaults to `LogBird.defaultIsEnabled`.
+    ///   - isEnabled: `Bool` — Whether recording starts active. Defaults to `true` under `DEBUG`, `false` otherwise.
     ///   - minLogLevel: `LBLogLevel` — Minimum severity recorded. Defaults to `.debug`.
     ///   - redactSensitiveFields: `Bool` — Whether to redact sensitive fields. Defaults to `true`.
-    ///   - sensitiveKeys: `Set<String>` — Key patterns considered sensitive. Defaults to `LogBird.defaultSensitiveKeys`.
+    ///   - sensitiveKeys: `[String]?` — Custom key patterns considered sensitive. Pass `nil` to inherit global defaults.
     ///   - identifier: `String?` — Optional header identifier string. Defaults to `nil`.
     public init(
         maxLogs: Int = 1000,
-        isEnabled: Bool = LogBird.defaultIsEnabled,
+        isEnabled: Bool = {
+            #if DEBUG
+            return true
+            #else
+            return false
+            #endif
+        }(),
         minLogLevel: LBLogLevel = .debug,
         redactSensitiveFields: Bool = true,
-        sensitiveKeys: Set<String> = LogBird.defaultSensitiveKeys,
+        sensitiveKeys: [String]? = nil,
         identifier: String? = nil
     ) {
         self.maxLogs = max(0, maxLogs)
         self.isEnabled = isEnabled
         self.minLogLevel = minLogLevel
         self.redactSensitiveFields = redactSensitiveFields
-        self.sensitiveKeys = Set(sensitiveKeys.map(LBRedactor.normalize).filter { !$0.isEmpty })
+        if let customKeys = sensitiveKeys {
+            self.sensitiveKeysState = .explicit(Set(customKeys.map(LBRedactor.normalize).filter { !$0.isEmpty }))
+        } else {
+            self.sensitiveKeysState = .inheritingDefaults(custom: [])
+        }
         self.identifier = identifier
     }
 
     /// Reconfigures sensitive keys using the specified action.
     ///
-    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.default`, or `.clear`.
+    /// - Parameter action: `LBSensitiveKeysAction` — `.add(keys)`, `.set(keys)`, `.reset`, or `.clear`.
     public mutating func sensitiveKeys(_ action: LBSensitiveKeysAction) {
         switch action {
-        case .set(let keys):
-            self.sensitiveKeys = keys
         case .add(let keys):
-            self.sensitiveKeys.formUnion(keys)
-        case .default(let keys):
-            self.sensitiveKeys = keys
+            let normalizedNew = Set(keys.map(LBRedactor.normalize).filter { !$0.isEmpty })
+            switch sensitiveKeysState {
+            case .inheritingDefaults(let custom):
+                self.sensitiveKeysState = .inheritingDefaults(custom: custom.union(normalizedNew))
+            case .explicit(let current):
+                self.sensitiveKeysState = .explicit(current.union(normalizedNew))
+            }
+        case .set(let keys):
+            let normalizedKeys = Set(keys.map(LBRedactor.normalize).filter { !$0.isEmpty })
+            self.sensitiveKeysState = .explicit(normalizedKeys)
+        case .reset:
+            self.sensitiveKeysState = .inheritingDefaults(custom: [])
         case .clear:
-            self.sensitiveKeys.removeAll()
+            self.sensitiveKeysState = .explicit([])
         }
     }
 }

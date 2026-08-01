@@ -62,7 +62,13 @@ public class LogBird: @unchecked Sendable {
         category: String? = nil,
         fileID: String = #fileID,
         maxLogs: Int = 1000,
-        isEnabled: Bool = LogBird.defaultIsEnabled,
+        isEnabled: Bool = {
+            #if DEBUG
+            return true
+            #else
+            return false
+            #endif
+        }(),
         minLogLevel: LBLogLevel = .debug
     ) {
         self.init(
@@ -107,16 +113,6 @@ public extension LogBird {
         set { shared.maxLogs = newValue }
     }
 
-    /// Keys matched by default when redacting sensitive fields.
-    ///
-    /// Includes curated pre-normalized needles: `"password"`, `"token"`, `"authorization"`, `"auth"`,
-    /// `"secret"`, `"apikey"`, `"cookie"`, `"bearer"`, `"credentials"`, and `"privatekey"`.
-    ///
-    /// Keys supplied via `sensitiveKeys(_:)` are automatically normalized upon insertion (lowercased,
-    /// stripping `-`, `_`, and whitespace). Substring matching is then performed, so variants like
-    /// `access_token`, `refresh_token`, `set-cookie`, `x-api-key`, and `private_key` are automatically matched.
-    static let defaultSensitiveKeys: Set<String> = LBRedactor.defaultSensitiveKeys
-
     /// The string that replaces a redacted value.
     static let redactionPlaceholder: String = LBRedactor.placeholder
 
@@ -133,8 +129,23 @@ public extension LogBird {
         set { shared.redactSensitiveFields = newValue }
     }
 
+    /// Reconfigures global default sensitive key patterns for the entire application.
+    ///
+    /// Loggers inheriting global defaults will automatically match these key patterns.
+    /// Input keys are automatically normalized (lowercased, stripping `-`, `_`, and whitespace).
+    ///
+    /// - Parameter keys: `[String]` — Array of key patterns to set as application defaults.
+    static func setDefaultSensitiveKeys(_ keys: [String]) {
+        LBRedactor.globalDefaultSensitiveKeys = Set(keys)
+    }
+
+    /// Read-only set of current global default sensitive key patterns.
+    static var defaultSensitiveKeys: Set<String> {
+        LBRedactor.globalDefaultSensitiveKeys
+    }
+
     /// The current sensitive key patterns used when redacting fields on the shared instance.
-    /// Read-only. Returns normalized key needles (defaults to `LogBird.defaultSensitiveKeys`).
+    /// Read-only. Returns normalized key needles.
     /// Reconfigure using `LogBird.sensitiveKeys(_:)` or `LogBird.config.sensitiveKeys(...)`.
     static var sensitiveKeys: Set<String> {
         shared.sensitiveKeys
@@ -144,14 +155,14 @@ public extension LogBird {
     ///
     /// Examples:
     /// ```swift
-    /// LogBird.sensitiveKeys(.add(["ssn", "creditCard"]))   // Union with current keys
-    /// LogBird.sensitiveKeys(.set(["customKey"]))           // Replace completely
-    /// LogBird.sensitiveKeys(.default)                      // Reset to standard default needles
-    /// LogBird.sensitiveKeys(.default(["customDefault"]))   // Reset to a custom set of defaults
-    /// LogBird.sensitiveKeys(.clear)                        // Disable key-based redaction
+    /// LogBird.setDefaultSensitiveKeys(["password", "token", "my_app_secret"])  // Application defaults
+    /// LogBird.sensitiveKeys(.add(["ssn", "creditCard"]))                      // Add custom keys for shared
+    /// LogBird.sensitiveKeys(.set(["customKey"]))                              // Override shared keys completely
+    /// LogBird.sensitiveKeys(.reset)                                           // Reset shared to pure defaults
+    /// LogBird.sensitiveKeys(.clear)                                           // Disable key redaction for shared
     /// ```
     ///
-    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.default`, `.default(keys)`, or `.clear`.
+    /// - Parameter action: `LBSensitiveKeysAction` — `.add(keys)`, `.set(keys)`, `.reset`, or `.clear`.
     static func sensitiveKeys(_ action: LBSensitiveKeysAction) {
         shared.sensitiveKeys(action)
     }
@@ -163,26 +174,10 @@ public extension LogBird {
         set { shared.identifier = newValue }
     }
 
-    /// Whether recording is enabled by default for the current build
-    /// configuration: `true` under `DEBUG`, `false` otherwise.
-    ///
-    /// This is the value `LogBird()` and `LogBird.shared` use for `isEnabled`
-    /// out of the box, so the logger records during development and is silent
-    /// in release builds without any configuration. Because the package is
-    /// compiled with the host's configuration, `#if DEBUG` reflects the
-    /// integrating app's build setting.
-    static let defaultIsEnabled: Bool = {
-        #if DEBUG
-        return true
-        #else
-        return false
-        #endif
-    }()
-
     /// Whether the shared logger records entries. When `false`, `log(...)`
     /// is a no-op: nothing is forwarded to OSLog, stored or published.
     ///
-    /// Defaults to `defaultIsEnabled` (on under `DEBUG`, off otherwise). Flip
+    /// Defaults to `true` under `DEBUG` and `false` otherwise. Flip
     /// it at runtime to enable logging permanently, gate it behind your own
     /// flags, or drive it from custom build macros.
     ///
@@ -303,7 +298,7 @@ public extension LogBird {
     }
 
     /// The current sensitive key patterns used when redacting fields on this instance.
-    /// Read-only. Returns normalized key needles (defaults to `LogBird.defaultSensitiveKeys`).
+    /// Read-only. Returns normalized key needles.
     /// Reconfigure using `logger.sensitiveKeys(_:)` or `logger.config.sensitiveKeys(...)`.
     var sensitiveKeys: Set<String> {
         manager.sensitiveKeys
@@ -313,14 +308,13 @@ public extension LogBird {
     ///
     /// Examples:
     /// ```swift
-    /// logger.sensitiveKeys(.add(["ssn", "creditCard"]))
-    /// logger.sensitiveKeys(.set(["customKey"]))
-    /// logger.sensitiveKeys(.default)
-    /// logger.sensitiveKeys(.default(["customDefault"]))
-    /// logger.sensitiveKeys(.clear)
+    /// logger.sensitiveKeys(.add(["ssn", "creditCard"]))                      // Add custom keys
+    /// logger.sensitiveKeys(.set(["customKey"]))                              // Override instance keys completely
+    /// logger.sensitiveKeys(.reset)                                           // Reset to pure global defaults
+    /// logger.sensitiveKeys(.clear)                                           // Disable key-based redaction
     /// ```
     ///
-    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.default`, `.default(keys)`, or `.clear`.
+    /// - Parameter action: `LBSensitiveKeysAction` — `.add(keys)`, `.set(keys)`, `.reset`, or `.clear`.
     func sensitiveKeys(_ action: LBSensitiveKeysAction) {
         manager.sensitiveKeys(action)
     }
@@ -335,9 +329,9 @@ public extension LogBird {
     /// Whether this logger records entries. When `false`, `log(...)` is a
     /// no-op: nothing is forwarded to OSLog, stored or published.
     ///
-    /// Defaults to `LogBird.defaultIsEnabled` (on under `DEBUG`, off
-    /// otherwise). Flip it at runtime to enable logging permanently, gate it
-    /// behind your own flags, or drive it from custom build macros.
+    /// Defaults to `true` under `DEBUG` and `false` otherwise. Flip it at runtime
+    /// to enable logging permanently, gate it behind your own flags, or drive
+    /// it from custom build macros.
     ///
     /// Changes apply to the next `log(...)` call. `clearLogs()` and `export()`
     /// always operate on the recorded history regardless of this value.

@@ -320,17 +320,19 @@ Key names matching sensitive patterns are automatically redacted in `additionalI
 Reconfigure sensitive keys at any time using `LBSensitiveKeysAction`:
 
 ```swift
-// Add new keys to existing defaults
+// Configure global default sensitive keys for the entire application
+LogBird.setDefaultSensitiveKeys(["password", "token", "auth", "x-api-key", "my_app_secret"])
+
+// Add custom keys to a logger instance (preserves inherited global defaults)
 LogBird.sensitiveKeys(.add(["ssn", "creditCard", "passcode"]))
 
-// Replace sensitive keys entirely
+// Replace sensitive keys for a logger instance entirely (bypasses global defaults)
 LogBird.sensitiveKeys(.set(["customSecret"]))
 
-// Reset back to default sensitive keys (or set custom defaults)
-LogBird.sensitiveKeys(.default)
-LogBird.sensitiveKeys(.default(["customDefaultKey"]))
+// Reset logger instance back to pure global default sensitive keys
+LogBird.sensitiveKeys(.reset)
 
-// Clear all sensitive keys (disable key-based redaction)
+// Clear all sensitive keys for a logger instance (disable key-based redaction)
 LogBird.sensitiveKeys(.clear)
 
 // Read current sensitive keys set (read-only)

@@ -19,18 +19,24 @@ struct LBRedactor: Sendable {
     /// The string that replaces a redacted value.
     static let placeholder = "<redacted>"
 
-    /// Keys matched by default when redacting sensitive fields.
-    ///
-    /// Includes curated needles: `"password"`, `"token"`, `"authorization"`, `"auth"`,
-    /// `"secret"`, `"apikey"`, `"cookie"`, `"bearer"`, `"credentials"`, and `"privatekey"`.
-    ///
-    /// Keys are pre-normalized (lowercased, without `-`, `_`, or whitespace). Due to substring
-    /// matching, variants like `access_token`, `refresh_token`, `set-cookie`, `x-api-key`,
-    /// and `private_key` are automatically matched.
-    static let defaultSensitiveKeys: Set<String> = [
+    private static let globalQueue = DispatchQueue(label: "com.logbird.globalRedactorQueue")
+    private static nonisolated(unsafe) var storedGlobalDefaultSensitiveKeys: Set<String> = initialDefaultSensitiveKeys
+
+    /// Initial curated sensitive key needles.
+    static let initialDefaultSensitiveKeys: Set<String> = [
         "password", "token", "authorization", "auth", "secret",
         "apikey", "cookie", "bearer", "credentials", "privatekey"
     ]
+
+    /// Global default sensitive key patterns for the application. Thread-safe read and write.
+    static var globalDefaultSensitiveKeys: Set<String> {
+        get { globalQueue.sync { storedGlobalDefaultSensitiveKeys } }
+        set {
+            globalQueue.sync {
+                storedGlobalDefaultSensitiveKeys = Set(newValue.map(normalize).filter { !$0.isEmpty })
+            }
+        }
+    }
 
     /// Whether redaction is applied; when `false`, values pass through unchanged.
     let isEnabled: Bool

@@ -83,7 +83,7 @@ final class LBRedactionTests: XCTestCase {
 
         XCTAssertEqual(first.logs.first?.additionalInfo?["token"], .string("abc123"))
         XCTAssertEqual(second.logs.first?.additionalInfo?["token"], .string("<redacted>"))
-        XCTAssertEqual(second.sensitiveKeys, LogBird.defaultSensitiveKeys)
+        XCTAssertEqual(second.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys)
     }
 
     func testEmptySensitiveKeysRedactNothing() {
@@ -106,35 +106,40 @@ final class LBRedactionTests: XCTestCase {
     }
 
     func testSensitiveKeysActionSetAddDefaultClear() {
+        defer {
+            LogBird.setDefaultSensitiveKeys(Array(LBRedactor.initialDefaultSensitiveKeys))
+        }
+
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-actions")
 
-        // Default set
-        XCTAssertEqual(logBird.sensitiveKeys, LogBird.defaultSensitiveKeys)
+        // Initial default set matches initial needles
+        XCTAssertEqual(logBird.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys)
 
-        // .set replaces completely
+        // .add preserves global defaults and adds custom keys
+        logBird.sensitiveKeys(.add(["anotherkey"]))
+        XCTAssertEqual(logBird.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys.union(["anotherkey"]))
+
+        // Changing global default dynamically updates logBird which added custom keys
+        LogBird.setDefaultSensitiveKeys(["password", "token", "newglobal"])
+        XCTAssertEqual(logBird.sensitiveKeys, ["password", "token", "newglobal", "anotherkey"])
+
+        // .set replaces completely for this instance
         logBird.sensitiveKeys(.set(["customkey"]))
         XCTAssertEqual(logBird.sensitiveKeys, ["customkey"])
 
-        // .add performs union
-        logBird.sensitiveKeys(.add(["anotherkey"]))
-        XCTAssertEqual(logBird.sensitiveKeys, ["customkey", "anotherkey"])
-
-        // .clear empties
+        // .clear empties this instance
         logBird.sensitiveKeys(.clear)
         XCTAssertTrue(logBird.sensitiveKeys.isEmpty)
 
-        // .default restores standard default set
-        logBird.sensitiveKeys(.default)
-        XCTAssertEqual(logBird.sensitiveKeys, LogBird.defaultSensitiveKeys)
-
-        // .default([...]) sets custom defaults
-        logBird.sensitiveKeys(.default(["customdefault"]))
-        XCTAssertEqual(logBird.sensitiveKeys, ["customdefault"])
+        // .reset restores pure global default set
+        logBird.sensitiveKeys(.reset)
+        XCTAssertEqual(logBird.sensitiveKeys, ["password", "token", "newglobal"])
     }
 
     func testStaticFacadeSensitiveKeysActions() {
         defer {
-            LogBird.sensitiveKeys(.default)
+            LogBird.setDefaultSensitiveKeys(Array(LBRedactor.initialDefaultSensitiveKeys))
+            LogBird.sensitiveKeys(.reset)
         }
 
         LogBird.sensitiveKeys(.set(["facadekey"]))
@@ -146,11 +151,12 @@ final class LBRedactionTests: XCTestCase {
         LogBird.sensitiveKeys(.clear)
         XCTAssertTrue(LogBird.sensitiveKeys.isEmpty)
 
-        LogBird.sensitiveKeys(.default)
-        XCTAssertEqual(LogBird.sensitiveKeys, LogBird.defaultSensitiveKeys)
+        LogBird.sensitiveKeys(.reset)
+        XCTAssertEqual(LogBird.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys)
 
-        LogBird.sensitiveKeys(.default(["mydefault"]))
-        XCTAssertEqual(LogBird.sensitiveKeys, ["mydefault"])
+        LogBird.setDefaultSensitiveKeys(["globalappdefault"])
+        LogBird.sensitiveKeys(.reset)
+        XCTAssertEqual(LogBird.sensitiveKeys, ["globalappdefault"])
     }
 
     func testSensitiveKeyMatchingIgnoresSeparators() {
@@ -245,7 +251,7 @@ final class LBRedactionTests: XCTestCase {
             "password", "token", "authorization", "auth", "secret",
             "apikey", "cookie", "bearer", "credentials", "privatekey"
         ]
-        XCTAssertEqual(LogBird.defaultSensitiveKeys, expectedNeedles)
+        XCTAssertEqual(LBRedactor.initialDefaultSensitiveKeys, expectedNeedles)
     }
 
     func testSensitiveKeysActionNormalizesInputKeys() {

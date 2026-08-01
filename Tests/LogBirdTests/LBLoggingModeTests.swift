@@ -4,18 +4,6 @@ import Combine
 
 final class LBLoggingModeTests: XCTestCase {
 
-    // MARK: defaultIsEnabled
-
-    /// `defaultIsEnabled` mirrors the build configuration: it is `true` while
-    /// the test target compiles under `DEBUG`.
-    func testDefaultIsEnabledReflectsDebugBuild() {
-        #if DEBUG
-        XCTAssertTrue(LogBird.defaultIsEnabled)
-        #else
-        XCTAssertFalse(LogBird.defaultIsEnabled)
-        #endif
-    }
-
     // MARK: isEnabled - init & defaults
 
     /// A logger constructed without explicit flags starts with the build
@@ -23,7 +11,11 @@ final class LBLoggingModeTests: XCTestCase {
     func testInitDefaultsMatchBuildConfiguration() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "defaults")
 
-        XCTAssertEqual(logBird.isEnabled, LogBird.defaultIsEnabled)
+        #if DEBUG
+        XCTAssertTrue(logBird.isEnabled)
+        #else
+        XCTAssertFalse(logBird.isEnabled)
+        #endif
         XCTAssertEqual(logBird.minLogLevel, .debug)
     }
 

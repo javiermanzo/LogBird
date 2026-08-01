@@ -7,19 +7,23 @@ final class LBConfigTests: XCTestCase {
         let config = LBConfig()
 
         XCTAssertEqual(config.maxLogs, 1000)
-        XCTAssertEqual(config.isEnabled, LogBird.defaultIsEnabled)
+        #if DEBUG
+        XCTAssertTrue(config.isEnabled)
+        #else
+        XCTAssertFalse(config.isEnabled)
+        #endif
         XCTAssertEqual(config.minLogLevel, .debug)
         XCTAssertTrue(config.redactSensitiveFields)
-        XCTAssertEqual(config.sensitiveKeys, LBRedactor.defaultSensitiveKeys)
+        XCTAssertEqual(config.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys)
         XCTAssertNil(config.identifier)
     }
 
     func testConfigCustomValues() {
-        let customKeys: Set<String> = ["ssn", "creditcard"]
+        let customKeys: [String] = ["ssn", "creditcard"]
         let config = LBConfig(
             maxLogs: 500,
             isEnabled: true,
-            minLogLevel: .warning,
+            minLogLevel: LBLogLevel.warning,
             redactSensitiveFields: false,
             sensitiveKeys: customKeys,
             identifier: "SESSION-123"
@@ -27,9 +31,9 @@ final class LBConfigTests: XCTestCase {
 
         XCTAssertEqual(config.maxLogs, 500)
         XCTAssertTrue(config.isEnabled)
-        XCTAssertEqual(config.minLogLevel, .warning)
+        XCTAssertEqual(config.minLogLevel, LBLogLevel.warning)
         XCTAssertFalse(config.redactSensitiveFields)
-        XCTAssertEqual(config.sensitiveKeys, customKeys)
+        XCTAssertEqual(config.sensitiveKeys, Set(customKeys))
         XCTAssertEqual(config.identifier, "SESSION-123")
     }
 
@@ -39,22 +43,26 @@ final class LBConfigTests: XCTestCase {
     }
 
     func testConfigSensitiveKeysActions() {
+        defer {
+            LogBird.setDefaultSensitiveKeys(Array(LBRedactor.initialDefaultSensitiveKeys))
+        }
+
         var config = LBConfig()
+
+        config.sensitiveKeys(.add(["anotherkey"]))
+        XCTAssertEqual(config.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys.union(["anotherkey"]))
 
         config.sensitiveKeys(.set(["customkey"]))
         XCTAssertEqual(config.sensitiveKeys, ["customkey"])
 
-        config.sensitiveKeys(.add(["anotherkey"]))
-        XCTAssertEqual(config.sensitiveKeys, ["customkey", "anotherkey"])
-
         config.sensitiveKeys(.clear)
         XCTAssertTrue(config.sensitiveKeys.isEmpty)
 
-        config.sensitiveKeys(.default)
-        XCTAssertEqual(config.sensitiveKeys, LogBird.defaultSensitiveKeys)
+        config.sensitiveKeys(.reset)
+        XCTAssertEqual(config.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys)
 
-        config.sensitiveKeys(.default(["customdefault"]))
-        XCTAssertEqual(config.sensitiveKeys, ["customdefault"])
+        LogBird.setDefaultSensitiveKeys(["globaldefault"])
+        XCTAssertEqual(config.sensitiveKeys, ["globaldefault"])
     }
 
     func testLogBirdConfigPropertyMutation() {
