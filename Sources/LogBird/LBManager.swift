@@ -36,52 +36,57 @@ final class LBManager: @unchecked Sendable {
         dispatchQueue.sync { logs }
     }
 
-    private var storedMaxLogs: Int
-    private var storedRedactSensitiveFields: Bool = true
-    private var storedSensitiveKeys: Set<String> = LBRedactor.defaultSensitiveKeys
+    private var storedConfig: LBConfig
 
-    /// Whether recording is active. When `false`, `log(...)` returns without
-    /// building, forwarding, storing or publishing anything. Toggled through
-    /// the `isEnabled` accessor.
-    private var storedIsEnabled: Bool
-
-    /// The minimum severity a log entry must reach to be recorded. Entries
-    /// whose `level` is below this threshold are dropped before any work is
-    /// done. Toggled through the `minLogLevel` accessor.
-    private var storedMinLogLevel: LBLogLevel
+    /// The configuration shaping this logger. Reading and writing are serialized
+    /// on `dispatchQueue`.
+    var config: LBConfig {
+        get { dispatchQueue.sync { storedConfig } }
+        set {
+            dispatchQueue.sync {
+                self.storedConfig = newValue
+                self.trimLogs()
+            }
+        }
+    }
 
     /// The maximum number of entries kept in memory. Once the limit is reached,
     /// the oldest entries are discarded. A value of 0 disables retention: the
     /// history stays empty while published events keep flowing. Negative values
     /// are treated as 0.
     var maxLogs: Int {
-        get {
-            dispatchQueue.sync { storedMaxLogs }
-        }
+        get { config.maxLogs }
         set {
-            dispatchQueue.sync {
-                self.storedMaxLogs = max(0, newValue)
-                self.trimLogs()
-            }
+            var updated = config
+            updated.maxLogs = newValue
+            config = updated
         }
     }
 
     /// An optional identifier prepended to each OSLog line.
     var identifier: String? {
-        get { dispatchQueue.sync { storedIdentifier } }
-        set { dispatchQueue.sync { storedIdentifier = newValue } }
+        get { config.identifier }
+        set {
+            var updated = config
+            updated.identifier = newValue
+            config = updated
+        }
     }
 
     /// Whether values under sensitive keys are redacted before a log is stored.
     var redactSensitiveFields: Bool {
-        get { dispatchQueue.sync { storedRedactSensitiveFields } }
-        set { dispatchQueue.sync { storedRedactSensitiveFields = newValue } }
+        get { config.redactSensitiveFields }
+        set {
+            var updated = config
+            updated.redactSensitiveFields = newValue
+            config = updated
+        }
     }
 
     /// The current sensitive keys used when redacting fields. Read-only.
     /// Use `sensitiveKeys(_:)` to reconfigure.
     var sensitiveKeys: Set<String> {
-        dispatchQueue.sync { storedSensitiveKeys }
+        config.sensitiveKeys
     }
 
     /// Configures the sensitive key patterns using the specified action.
@@ -90,17 +95,7 @@ final class LBManager: @unchecked Sendable {
     /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.reset`, or `.clear`.
     func sensitiveKeys(_ action: LBSensitiveKeysAction) {
         dispatchQueue.sync {
-            switch action {
-            case .set(let keys):
-                self.storedSensitiveKeys = Set(keys.map(LBRedactor.normalize).filter { !$0.isEmpty })
-            case .add(let keys):
-                let normalizedNewKeys = keys.map(LBRedactor.normalize).filter { !$0.isEmpty }
-                self.storedSensitiveKeys.formUnion(normalizedNewKeys)
-            case .reset:
-                self.storedSensitiveKeys = LBRedactor.defaultSensitiveKeys
-            case .clear:
-                self.storedSensitiveKeys.removeAll()
-            }
+            self.storedConfig.sensitiveKeys(action)
         }
     }
 
@@ -112,8 +107,12 @@ final class LBManager: @unchecked Sendable {
     /// Changes apply to the next `log(...)` call. `clearLogs()` and `export()`
     /// are not affected: they always operate on the recorded history.
     var isEnabled: Bool {
-        get { dispatchQueue.sync { storedIsEnabled } }
-        set { dispatchQueue.sync { storedIsEnabled = newValue } }
+        get { config.isEnabled }
+        set {
+            var updated = config
+            updated.isEnabled = newValue
+            config = updated
+        }
     }
 
     /// The minimum severity required to record an entry. An entry is recorded
@@ -121,29 +120,27 @@ final class LBManager: @unchecked Sendable {
     /// before any work is done. Defaults to `.debug` (everything passes when
     /// `isEnabled` is on).
     var minLogLevel: LBLogLevel {
-        get { dispatchQueue.sync { storedMinLogLevel } }
-        set { dispatchQueue.sync { storedMinLogLevel = newValue } }
+        get { config.minLogLevel }
+        set {
+            var updated = config
+            updated.minLogLevel = newValue
+            config = updated
+        }
     }
 
-    /// Creates a manager instance.
+    /// Creates a manager instance with the given configuration.
     ///
     /// - Parameters:
     ///   - subsystem: `String` — Reverse-DNS subsystem identifier used by OSLog.
     ///   - category: `String` — OSLog category scoping entries in Console.app.
-    ///   - maxLogs: `Int` — Maximum history entries kept in memory. Defaults to `1000`.
-    ///   - isEnabled: `Bool` — Whether recording starts active. Defaults to `LogBird.defaultIsEnabled` (on under `DEBUG`).
-    ///   - minLogLevel: `LBLogLevel` — Minimum severity recorded. Defaults to `.debug`.
+    ///   - config: `LBConfig` — Centralized configuration struct. Defaults to `LBConfig()`.
     init(subsystem: String,
          category: String,
-         maxLogs: Int = 1000,
-         isEnabled: Bool = LogBird.defaultIsEnabled,
-         minLogLevel: LBLogLevel = .debug) {
+         config: LBConfig = LBConfig()) {
         let source = LBSource(subsystem: subsystem, category: category)
         self.logger = Logger(subsystem: source.subsystem, category: source.category)
         self.source = source
-        self.storedMaxLogs = max(0, maxLogs)
-        self.storedIsEnabled = isEnabled
-        self.storedMinLogLevel = minLogLevel
+        self.storedConfig = config
     }
 
     /// Builds a log, forwards it to OSLog and records it (subject to `maxLogs`).
@@ -170,20 +167,15 @@ final class LBManager: @unchecked Sendable {
              function: String = #function,
              line: Int = #line) {
 
-        // Snapshot the recording gate and the redaction config in a single
-        // queue hop so `buildLogData` stays off the state queue.
-        let snapshot = dispatchQueue.sync {
-            LogSnapshot(
-                isEnabled: self.storedIsEnabled,
-                minLogLevel: self.storedMinLogLevel,
-                redactor: LBRedactor(isEnabled: self.storedRedactSensitiveFields, sensitiveKeys: self.storedSensitiveKeys)
-            )
-        }
+        // Snapshot configuration under a single queue hop so `buildLogData` stays off the state queue.
+        let configSnapshot = config
 
         // Gate: bail out before any work when recording is off, or when the
         // entry is below the configured severity floor. The disabled path
         // therefore costs a single queue hop.
-        guard snapshot.isEnabled, level >= snapshot.minLogLevel else { return }
+        guard configSnapshot.isEnabled, level >= configSnapshot.minLogLevel else { return }
+
+        let redactor = LBRedactor(isEnabled: configSnapshot.redactSensitiveFields, sensitiveKeys: configSnapshot.sensitiveKeys)
 
         // `buildLogData` only reads immutable `source` and the supplied parameters.
         let log = buildLogData(message: message,
@@ -194,11 +186,11 @@ final class LBManager: @unchecked Sendable {
                                file: file,
                                function: function,
                                line: line,
-                               redactor: snapshot.redactor)
+                               redactor: redactor)
 
         // Serialize identifier read and log mutation to keep state consistent.
         dispatchQueue.sync {
-            let logMessage = Self.formattedMessage(for: log, identifier: self.storedIdentifier)
+            let logMessage = Self.formattedMessage(for: log, identifier: self.storedConfig.identifier)
             self.logger.log(level: level.osLogType, "\(logMessage, privacy: .public)")
             self.logs.append(log)
             self.trimLogs()
@@ -225,7 +217,7 @@ final class LBManager: @unchecked Sendable {
     /// - Throws: `EncodingError` if a log value cannot be encoded, or the file-system error if writing fails.
     /// - Returns: `LBExportOutput` with the encoded data and, for `.file`, the written URL.
     func export(_ content: LBExportContent, format: LBExportFormat, destination: LBExportDestination) throws -> LBExportOutput {
-        let (logs, identifier) = dispatchQueue.sync { (self.logs, self.storedIdentifier) }
+        let (logs, identifier) = dispatchQueue.sync { (self.logs, self.storedConfig.identifier) }
         let selected: [LBLog]
         switch content {
         case .all:
@@ -236,10 +228,10 @@ final class LBManager: @unchecked Sendable {
         return try LBLogExporter.export(selected, format: format, destination: destination, identifier: identifier)
     }
 
-    /// Keeps only the newest `storedMaxLogs` entries. Must be called on `dispatchQueue`.
+    /// Keeps only the newest `maxLogs` entries. Must be called on `dispatchQueue`.
     private func trimLogs() {
-        if logs.count > storedMaxLogs {
-            logs.removeFirst(logs.count - storedMaxLogs)
+        if logs.count > storedConfig.maxLogs {
+            logs.removeFirst(logs.count - storedConfig.maxLogs)
         }
     }
 

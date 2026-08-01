@@ -45,10 +45,19 @@ public class LogBird: @unchecked Sendable {
     ///   - subsystem: `String` — Reverse-DNS identifier used by OSLog (e.g. `com.example.myapp`). Defaults to host bundle identifier.
     ///   - category: `String?` — OSLog category scoping entries in Console.app. Pass `nil` to infer caller module from `fileID`.
     ///   - fileID: `String` — `#fileID` string at call site, used to infer `category` when `nil`.
-    ///   - maxLogs: `Int` — Maximum history entries kept in memory. `0` disables history retention. Defaults to `1000`.
-    ///   - isEnabled: `Bool` — Whether recording starts active. Defaults to `defaultIsEnabled` (on under `DEBUG`, off otherwise).
-    ///   - minLogLevel: `LBLogLevel` — Minimum severity recorded. Defaults to `.debug` (everything passes when enabled).
+    ///   - config: `LBConfig` — Centralized configuration options. Defaults to `LBConfig()`.
     public init(
+        subsystem: String = resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier),
+        category: String? = nil,
+        fileID: String = #fileID,
+        config: LBConfig = LBConfig()
+    ) {
+        let resolvedCategory = category ?? Self.defaultCategory(fileID: fileID)
+        manager = LBManager(subsystem: subsystem, category: resolvedCategory, config: config)
+    }
+
+    /// Convenience initializer supporting direct parameter overrides.
+    public convenience init(
         subsystem: String = resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier),
         category: String? = nil,
         fileID: String = #fileID,
@@ -56,8 +65,12 @@ public class LogBird: @unchecked Sendable {
         isEnabled: Bool = LogBird.defaultIsEnabled,
         minLogLevel: LBLogLevel = .debug
     ) {
-        let resolvedCategory = category ?? Self.defaultCategory(fileID: fileID)
-        manager = LBManager(subsystem: subsystem, category: resolvedCategory, maxLogs: maxLogs, isEnabled: isEnabled, minLogLevel: minLogLevel)
+        self.init(
+            subsystem: subsystem,
+            category: category,
+            fileID: fileID,
+            config: LBConfig(maxLogs: maxLogs, isEnabled: isEnabled, minLogLevel: minLogLevel)
+        )
     }
 }
 
@@ -68,6 +81,12 @@ public extension LogBird {
     /// `general` as category, or a stable default where the bundle provides
     /// none (e.g. tests or command-line tools).
     static let shared = LogBird(subsystem: resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier), category: "general")
+
+    /// The centralized configuration of the shared logger instance.
+    static var config: LBConfig {
+        get { shared.config }
+        set { shared.config = newValue }
+    }
 
     /// Publishes history events as they happen: `recorded` for each new entry
     /// and `cleared` when the history is emptied. Earlier events are not
@@ -238,6 +257,12 @@ public extension LogBird {
 
 // MARK: Public
 public extension LogBird {
+
+    /// The centralized configuration of this logger instance.
+    var config: LBConfig {
+        get { manager.config }
+        set { manager.config = newValue }
+    }
 
     /// Publishes history events as they happen: `recorded` for each new entry
     /// and `cleared` when the history is emptied. Earlier events are not

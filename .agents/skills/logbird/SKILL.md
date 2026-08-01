@@ -64,6 +64,9 @@ logger.log("GET /users 200 OK", level: .info)
 Recording is **on by default only under `DEBUG`** (`LogBird.defaultIsEnabled`, via `#if DEBUG`). Two independent controls shape when and what gets recorded:
 
 ```swift
+// Centralized configuration via LBConfig
+LogBird.config = LBConfig(maxLogs: 500, isEnabled: true, minLogLevel: .warning, identifier: "SESSION-123")
+
 // Master switch (runtime on/off). Default: enabled under DEBUG, off otherwise.
 LogBird.isEnabled = true                 // force on in release / field builds
 LogBird.isEnabled = FeatureFlags.verbose // drive from your own flags or macros

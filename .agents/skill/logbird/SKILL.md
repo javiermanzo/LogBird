@@ -126,7 +126,17 @@ LogBird.logsPublisher
     .store(in: &cancellables)
 ```
 
-### 3.6 Exporting Recorded Logs
+### 3.6 Enabling & Filtering Logs
+
+```swift
+// Centralized configuration via LBConfig
+LogBird.config = LBConfig(maxLogs: 500, isEnabled: true, minLogLevel: .warning, identifier: "SESSION-123")
+
+// Master switch (runtime on/off). Default: enabled under DEBUG, off otherwise.
+LogBird.isEnabled = true                 // force on in release / field builds
+```
+
+### 3.7 Exporting Recorded Logs
 
 ```swift
 // Export all logs as JSON Data

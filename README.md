@@ -193,9 +193,31 @@ Supported levels in `LBLogLevel` (ordered from lowest to highest severity):
 | `.error` | ❌ | `xmark.octagon` | Standard runtime errors and handled failures. |
 | `.critical` | 🚨 | `flame` | Severe system failures requiring immediate action. |
 
-### Enabling & Filtering Logs
+### Centralized Configuration (`LBConfig`)
 
-LogBird is **silent by default in release builds**: recording is enabled only under `DEBUG` (via `#if DEBUG`), so no extra setup is needed to keep production quiet. Two independent controls let you shape when and what gets recorded.
+All logger settings (`maxLogs`, `isEnabled`, `minLogLevel`, `redactSensitiveFields`, `sensitiveKeys`, `identifier`) can be managed atomically through `LBConfig`:
+
+```swift
+// Configure shared instance via LBConfig
+LogBird.config = LBConfig(
+    maxLogs: 500,
+    isEnabled: true,
+    minLogLevel: .info,
+    redactSensitiveFields: true,
+    identifier: "SESSION-99"
+)
+
+// Mutate specific properties via config or direct property forwarders
+LogBird.config.minLogLevel = .warning
+LogBird.config.sensitiveKeys(.add(["ssn", "passcode"]))
+
+// Create a logger instance with a custom LBConfig
+let customLogger = LogBird(
+    subsystem: "com.myapp.network",
+    category: "HTTP",
+    config: LBConfig(maxLogs: 200, minLogLevel: .error)
+)
+```
 
 #### Master Switch: `isEnabled`
 

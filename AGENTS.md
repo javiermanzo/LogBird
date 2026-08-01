@@ -106,12 +106,12 @@ public class LogBird: @unchecked Sendable {
         subsystem: String = resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier),
         category: String? = nil,
         fileID: String = #fileID,
-        maxLogs: Int = 1000,
-        isEnabled: Bool = LogBird.defaultIsEnabled,
-        minLogLevel: LBLogLevel = .debug
+        config: LBConfig = LBConfig()
     )
 
     // Configuration Properties
+    public static var config: LBConfig { get set }
+    public var config: LBConfig { get set }
     public var maxLogs: Int { get set }
     public var redactSensitiveFields: Bool { get set }
     public static let defaultSensitiveKeys: Set<String>
@@ -148,6 +148,7 @@ public class LogBird: @unchecked Sendable {
 | Model | Conformances | Description |
 | :--- | :--- | :--- |
 | `LBLog` | `Codable, Identifiable, Hashable, Sendable` | Core record: `id`, `level`, `message`, `extraMessages`, `additionalInfo`, `error`, `createdAt`, `location`, `source`. |
+| `LBConfig` | `Hashable, Sendable` | Centralized config: `maxLogs`, `isEnabled`, `minLogLevel`, `redactSensitiveFields`, `sensitiveKeys`, `identifier`. |
 | `LBLogLevel` | `String, Codable, CaseIterable, Comparable, Sendable` | Severities: `.debug`, `.info`, `.warning`, `.error`, `.critical`. Ordered by severity (not alphabetically) and maps to `OSLogType` & emojis. |
 | `LBValue` | `Codable, Hashable, CustomStringConvertible, Sendable` | Typed metadata: `.string`, `.int`, `.double`, `.bool`, `.url`, `.array`, `.dictionary`. Expressible by literals. |
 | `LBLogMessage` | `ExpressibleByStringInterpolation, Hashable, Sendable` | Custom interpolation wrapper supporting `\(value, privacy: .private)`. |
