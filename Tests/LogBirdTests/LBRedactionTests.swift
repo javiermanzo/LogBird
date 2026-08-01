@@ -105,7 +105,7 @@ final class LBRedactionTests: XCTestCase {
         XCTAssertEqual(logBird.logs.first?.additionalInfo?["token"], .string("abc123"))
     }
 
-    func testSensitiveKeysActionSetAddResetClear() {
+    func testSensitiveKeysActionSetAddDefaultClear() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-actions")
 
         // Default set
@@ -123,14 +123,18 @@ final class LBRedactionTests: XCTestCase {
         logBird.sensitiveKeys(.clear)
         XCTAssertTrue(logBird.sensitiveKeys.isEmpty)
 
-        // .reset restores default set
-        logBird.sensitiveKeys(.reset)
+        // .default restores standard default set
+        logBird.sensitiveKeys(.default)
         XCTAssertEqual(logBird.sensitiveKeys, LogBird.defaultSensitiveKeys)
+
+        // .default([...]) sets custom defaults
+        logBird.sensitiveKeys(.default(["customdefault"]))
+        XCTAssertEqual(logBird.sensitiveKeys, ["customdefault"])
     }
 
     func testStaticFacadeSensitiveKeysActions() {
         defer {
-            LogBird.sensitiveKeys(.reset)
+            LogBird.sensitiveKeys(.default)
         }
 
         LogBird.sensitiveKeys(.set(["facadekey"]))
@@ -142,8 +146,11 @@ final class LBRedactionTests: XCTestCase {
         LogBird.sensitiveKeys(.clear)
         XCTAssertTrue(LogBird.sensitiveKeys.isEmpty)
 
-        LogBird.sensitiveKeys(.reset)
+        LogBird.sensitiveKeys(.default)
         XCTAssertEqual(LogBird.sensitiveKeys, LogBird.defaultSensitiveKeys)
+
+        LogBird.sensitiveKeys(.default(["mydefault"]))
+        XCTAssertEqual(LogBird.sensitiveKeys, ["mydefault"])
     }
 
     func testSensitiveKeyMatchingIgnoresSeparators() {

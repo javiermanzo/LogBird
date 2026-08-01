@@ -153,7 +153,7 @@ public class LogBird: @unchecked Sendable {
 | `LBValue` | `Codable, Hashable, CustomStringConvertible, Sendable` | Typed metadata: `.string`, `.int`, `.double`, `.bool`, `.url`, `.array`, `.dictionary`. Expressible by literals. |
 | `LBLogMessage` | `ExpressibleByStringInterpolation, Hashable, Sendable` | Custom interpolation wrapper supporting `\(value, privacy: .private)`. |
 | `LBError` | `Codable, Hashable, Sendable` | Captures domain, code, type, localizedDescription, and stringified `userInfo` (merged with `DecodingError` / `EncodingError` context). |
-| `LBSensitiveKeysAction` | `Hashable, Sendable` | Action enum for key redaction configuration: `.set(Set<String>)`, `.add(Set<String>)`, `.reset`, `.clear`. |
+| `LBSensitiveKeysAction` | `Hashable, Sendable` | Action enum for key redaction configuration: `.set(Set<String>)`, `.add(Set<String>)`, `.default`, `.default(Set<String>)`, `.clear`. |
 | `LBExportFormat` | `String, Codable, CaseIterable, Sendable` | Encoding formats: `.json`, `.jsonLines` (NDJSON), `.plainText`. |
 | `LBExportOutput` | `Sendable, Equatable` | Result enum: `.data(Data)` or `.file(URL, data: Data)`. |
 
@@ -162,9 +162,13 @@ public class LogBird: @unchecked Sendable {
 ## 6. Rules for AI Agents Modifying Code
 
 1. **Test Execution**: Always run `swift test` (using `BypassSandbox: true` if sandboxed) to verify clean execution.
-2. **Preserve SwiftDoc Comments**: Retain all docstrings (`///`). When adding or altering methods, update SwiftDoc comments accordingly.
+2. **Complete SwiftDoc Comments**: Every new or modified piece of code (types, structs, enums, properties, methods, parameter lists) MUST include clean, complete SwiftDoc comments (`///` or `/** ... */`).
 3. **No Unsafe State Access**: Do not access `logs` array or internal variables in `LBManager` outside `dispatchQueue.sync` or `dispatchQueue.async`.
 4. **Swift 6 Compatibility**: Keep all types conformant to `Sendable` where appropriate.
+5. **Synchronized Documentation & Skill Maintenance**: Whenever code, public APIs, configurations, or features are added or modified, AI agents MUST update all corresponding documentation files:
+   - `README.md` (user-facing library documentation and usage examples)
+   - `AGENTS.md` (this file, updating API reference signatures, invariants, and data models)
+   - `.agents/skills/logbird/SKILL.md` and `.agents/skill/logbird/SKILL.md` (agent skill & context loader)
 
 ---
 

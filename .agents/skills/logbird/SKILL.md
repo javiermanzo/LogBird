@@ -81,7 +81,7 @@ Both are settable per-instance and at construction (`isEnabled:` / `minLogLevel:
 
 #### Key-Based Automatic Redaction
 ```swift
-// Configure sensitive key patterns (.add, .set, .reset, .clear)
+// Configure sensitive key patterns (.add, .set, .default, .clear)
 LogBird.sensitiveKeys(.add(["ssn", "creditCard"]))
 
 // Automatically redacts matching keys in additionalInfo, extraMessages, and error.userInfo

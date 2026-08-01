@@ -50,8 +50,11 @@ final class LBConfigTests: XCTestCase {
         config.sensitiveKeys(.clear)
         XCTAssertTrue(config.sensitiveKeys.isEmpty)
 
-        config.sensitiveKeys(.reset)
-        XCTAssertEqual(config.sensitiveKeys, LBRedactor.defaultSensitiveKeys)
+        config.sensitiveKeys(.default)
+        XCTAssertEqual(config.sensitiveKeys, LogBird.defaultSensitiveKeys)
+
+        config.sensitiveKeys(.default(["customdefault"]))
+        XCTAssertEqual(config.sensitiveKeys, ["customdefault"])
     }
 
     func testLogBirdConfigPropertyMutation() {

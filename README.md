@@ -326,8 +326,9 @@ LogBird.sensitiveKeys(.add(["ssn", "creditCard", "passcode"]))
 // Replace sensitive keys entirely
 LogBird.sensitiveKeys(.set(["customSecret"]))
 
-// Reset back to default sensitive keys
-LogBird.sensitiveKeys(.reset)
+// Reset back to default sensitive keys (or set custom defaults)
+LogBird.sensitiveKeys(.default)
+LogBird.sensitiveKeys(.default(["customDefaultKey"]))
 
 // Clear all sensitive keys (disable key-based redaction)
 LogBird.sensitiveKeys(.clear)

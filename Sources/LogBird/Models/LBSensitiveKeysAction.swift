@@ -15,9 +15,15 @@ public enum LBSensitiveKeysAction: Hashable, Sendable {
     /// Adds the specified key patterns to the existing set of sensitive keys.
     case add(Set<String>)
 
-    /// Resets sensitive keys back to `LogBird.defaultSensitiveKeys`.
-    case reset
+    /// Resets sensitive key patterns to default needles (or a custom default set).
+    case `default`(Set<String>)
 
     /// Clears all sensitive keys so no key-based redaction is performed.
     case clear
+
+    /// Resets sensitive keys back to standard default curated needles.
+    public static var `default`: LBSensitiveKeysAction {
+        .default(LBRedactor.defaultSensitiveKeys)
+    }
 }
+

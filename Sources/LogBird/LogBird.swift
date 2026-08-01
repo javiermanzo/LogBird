@@ -144,11 +144,12 @@ public extension LogBird {
     /// ```swift
     /// LogBird.sensitiveKeys(.add(["ssn", "creditCard"]))
     /// LogBird.sensitiveKeys(.set(["customKey"]))
-    /// LogBird.sensitiveKeys(.reset)
+    /// LogBird.sensitiveKeys(.default)
+    /// LogBird.sensitiveKeys(.default(["customDefault"]))
     /// LogBird.sensitiveKeys(.clear)
     /// ```
     ///
-    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.reset`, or `.clear`.
+    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.default`, `.default(keys)`, or `.clear`.
     static func sensitiveKeys(_ action: LBSensitiveKeysAction) {
         shared.sensitiveKeys(action)
     }
@@ -310,11 +311,12 @@ public extension LogBird {
     /// ```swift
     /// logger.sensitiveKeys(.add(["ssn", "creditCard"]))
     /// logger.sensitiveKeys(.set(["customKey"]))
-    /// logger.sensitiveKeys(.reset)
+    /// logger.sensitiveKeys(.default)
+    /// logger.sensitiveKeys(.default(["customDefault"]))
     /// logger.sensitiveKeys(.clear)
     /// ```
     ///
-    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.reset`, or `.clear`.
+    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.default`, `.default(keys)`, or `.clear`.
     func sensitiveKeys(_ action: LBSensitiveKeysAction) {
         manager.sensitiveKeys(action)
     }

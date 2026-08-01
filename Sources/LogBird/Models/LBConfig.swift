@@ -62,15 +62,15 @@ public struct LBConfig: Hashable, Sendable {
 
     /// Reconfigures sensitive keys using the specified action.
     ///
-    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.reset`, or `.clear`.
+    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.default`, or `.clear`.
     public mutating func sensitiveKeys(_ action: LBSensitiveKeysAction) {
         switch action {
         case .set(let keys):
             self.sensitiveKeys = keys
         case .add(let keys):
             self.sensitiveKeys.formUnion(keys)
-        case .reset:
-            self.sensitiveKeys = LogBird.defaultSensitiveKeys
+        case .default(let keys):
+            self.sensitiveKeys = keys
         case .clear:
             self.sensitiveKeys.removeAll()
         }

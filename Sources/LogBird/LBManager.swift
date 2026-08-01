@@ -92,7 +92,7 @@ final class LBManager: @unchecked Sendable {
     /// Configures the sensitive key patterns using the specified action.
     /// New keys are automatically normalized (lowercased, stripping `-`, `_`, and whitespace).
     ///
-    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.reset`, or `.clear`.
+    /// - Parameter action: `LBSensitiveKeysAction` — `.set(keys)`, `.add(keys)`, `.default`, or `.clear`.
     func sensitiveKeys(_ action: LBSensitiveKeysAction) {
         dispatchQueue.sync {
             self.storedConfig.sensitiveKeys(action)
