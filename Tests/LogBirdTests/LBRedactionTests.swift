@@ -192,8 +192,36 @@ final class LBRedactionTests: XCTestCase {
         XCTAssertTrue(json.contains("<redacted>"))
     }
 
-    func testDefaultKeysIncludePasswordAndAuthorization() {
-        XCTAssertTrue(LogBird.defaultSensitiveKeys.contains("password"))
-        XCTAssertTrue(LogBird.defaultSensitiveKeys.contains("authorization"))
+    func testDefaultKeysIncludeAllCuratedNeedles() {
+        let expectedNeedles: Set<String> = [
+            "password", "token", "authorization", "auth", "secret",
+            "apiKey", "cookie", "bearer", "credentials", "privateKey"
+        ]
+        XCTAssertEqual(LogBird.defaultSensitiveKeys, expectedNeedles)
+    }
+
+    func testExpandedDefaultKeysMatchCommonVariants() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-variants")
+
+        logBird.log("login", additionalInfo: [
+            "access_token": .string("token1"),
+            "refresh_token": .string("token2"),
+            "set-cookie": .string("session=123"),
+            "x-api-key": .string("key123"),
+            "private_key": .string("pem-data"),
+            "user_credentials": .string("creds"),
+            "bearer": .string("token3"),
+            "auth_code": .string("code123")
+        ])
+
+        let info = logBird.logs.first?.additionalInfo
+        XCTAssertEqual(info?["access_token"], .string("<redacted>"))
+        XCTAssertEqual(info?["refresh_token"], .string("<redacted>"))
+        XCTAssertEqual(info?["set-cookie"], .string("<redacted>"))
+        XCTAssertEqual(info?["x-api-key"], .string("<redacted>"))
+        XCTAssertEqual(info?["private_key"], .string("<redacted>"))
+        XCTAssertEqual(info?["user_credentials"], .string("<redacted>"))
+        XCTAssertEqual(info?["bearer"], .string("<redacted>"))
+        XCTAssertEqual(info?["auth_code"], .string("<redacted>"))
     }
 }

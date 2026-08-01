@@ -9,29 +9,41 @@ import Foundation
 
 /// Replaces values under sensitive keys with a fixed placeholder.
 ///
-/// A key is sensitive when it contains any of the configured keys. Matching is
-/// case-insensitive and ignores underscores, hyphens and whitespace, so
-/// `accessToken`, `access-token` and `ACCESS_TOKEN` all match `token`.
+/// A key is sensitive when its normalized representation contains any of the
+/// configured sensitive key needles. Normalization converts strings to lowercase
+/// and strips hyphens (`-`), underscores (`_`), and whitespace characters. For example,
+/// `accessToken`, `access-token`, `ACCESS_TOKEN`, and `Access Token` all normalize
+/// to `accesstoken`, matching the needle `token`.
 struct LBRedactor: Sendable {
 
     /// The string that replaces a redacted value.
     static let placeholder = "<redacted>"
 
     /// Keys matched by default when redacting sensitive fields.
-    static let defaultSensitiveKeys = ["password", "token", "authorization", "secret", "apiKey", "cookie"]
+    ///
+    /// Includes curated needles: `"password"`, `"token"`, `"authorization"`, `"auth"`,
+    /// `"secret"`, `"apiKey"`, `"cookie"`, `"bearer"`, `"credentials"`, and `"privateKey"`.
+    ///
+    /// Due to normalization (lowercasing and removal of `-`, `_`, and whitespace) and
+    /// substring matching, variants like `access_token`, `refresh_token`, `set-cookie`,
+    /// `x-api-key`, and `private_key` are automatically matched.
+    static let defaultSensitiveKeys: Set<String> = [
+        "password", "token", "authorization", "auth", "secret",
+        "apiKey", "cookie", "bearer", "credentials", "privateKey"
+    ]
 
     /// Whether redaction is applied; when `false`, values pass through unchanged.
     let isEnabled: Bool
-    private let needles: [String]
+    private let needles: Set<String>
 
     /// Creates a redactor instance.
     ///
     /// - Parameters:
     ///   - isEnabled: `Bool` — Whether sensitive field redaction is active.
-    ///   - sensitiveKeys: `[String]` — Key substrings matched during redaction.
-    init(isEnabled: Bool, sensitiveKeys: [String]) {
+    ///   - sensitiveKeys: `Set<String>` — Key substrings matched during redaction.
+    init(isEnabled: Bool, sensitiveKeys: Set<String>) {
         self.isEnabled = isEnabled
-        self.needles = sensitiveKeys.map(Self.normalize).filter { !$0.isEmpty }
+        self.needles = Set(sensitiveKeys.map(Self.normalize).filter { !$0.isEmpty })
     }
 
     /// Replaces values under sensitive keys in `additionalInfo` metadata.
@@ -73,8 +85,8 @@ struct LBRedactor: Sendable {
         return needles.contains { key.contains($0) }
     }
 
-    /// Lowercases and strips separators, so written variants of the same key
-    /// (`api_key`, `x-api-key`, `API KEY`) compare equal.
+    /// Lowercases and strips separators (`-`, `_`, whitespace), so written variants
+    /// of the same key (`api_key`, `x-api-key`, `API KEY`) compare equal.
     private static func normalize(_ key: String) -> String {
         key.lowercased().filter { $0 != "_" && $0 != "-" && !$0.isWhitespace }
     }

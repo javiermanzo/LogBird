@@ -283,11 +283,13 @@ LogBird provides two layers of data privacy out of the box:
 
 Key names matching sensitive patterns are automatically redacted in `additionalInfo`, `extraMessages`, and `error.userInfo`.
 
-Default sensitive key patterns: `"password"`, `"token"`, `"authorization"`, `"secret"`, `"apiKey"`, `"cookie"`.
+Default sensitive key patterns (`Set<String>`): `"password"`, `"token"`, `"authorization"`, `"auth"`, `"secret"`, `"apiKey"`, `"cookie"`, `"bearer"`, `"credentials"`, `"privateKey"`.
+
+> **Key Normalization**: Keys and needles are automatically lowercased with hyphens (`-`), underscores (`_`), and whitespace removed. Substring matching is applied, so variants like `access_token`, `refresh_token`, `set-cookie`, `x-api-key`, and `private_key` are automatically matched out of the box.
 
 ```swift
-// Customize global or per-instance sensitive keys
-LogBird.sensitiveKeys += ["ssn", "creditCard", "passcode"]
+// Customize global or per-instance sensitive keys (Set<String>)
+LogBird.sensitiveKeys.formUnion(["ssn", "creditCard", "passcode"])
 
 // Logging dictionary with sensitive keys
 LogBird.log("User login attempt", additionalInfo: [

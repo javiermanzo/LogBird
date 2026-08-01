@@ -79,8 +79,9 @@ When modifying or extending LogBird, AI agents MUST preserve the following invar
 ### 3.3 Privacy & Sensitive Data Redaction
 1. **Automatic Field Redaction (`LBRedactor`)**:
    - Scans keys in `additionalInfo`, `extraMessages`, and `error.userInfo`.
-   - Keys are normalized (lowercased, stripping `_`, `-`, and whitespace).
-   - If a key contains any configured needle in `sensitiveKeys` (default: `"password"`, `"token"`, `"authorization"`, `"secret"`, `"apiKey"`, `"cookie"`), the value is swapped for `LBRedactor.placeholder` (`"<redacted>"`).
+   - Keys and needles are normalized (lowercased, stripping `_`, `-`, and whitespace).
+   - If a normalized key contains any configured needle in `sensitiveKeys` (default: `"password"`, `"token"`, `"authorization"`, `"auth"`, `"secret"`, `"apiKey"`, `"cookie"`, `"bearer"`, `"credentials"`, `"privateKey"`), the value is swapped for `LBRedactor.placeholder` (`"<redacted>"`).
+   - Substring matching ensures variants like `access_token`, `refresh_token`, `set-cookie`, `x-api-key`, and `private_key` are automatically matched.
 2. **Inline Interpolation Privacy (`LBLogMessage`)**:
    - Uses Swift String Interpolation to replace `.private` interpolations with `LBRedactor.placeholder` during message assembly.
    - Example: `LogBird.log("User \(username, privacy: .private) logged in")`.
@@ -113,7 +114,9 @@ public class LogBird: @unchecked Sendable {
     // Configuration Properties
     public var maxLogs: Int { get set }
     public var redactSensitiveFields: Bool { get set }
-    public var sensitiveKeys: [String] { get set }
+    public static let defaultSensitiveKeys: Set<String>
+    public static var sensitiveKeys: Set<String> { get set }
+    public var sensitiveKeys: Set<String> { get set }
     public var identifier: String? { get set }
     public var isEnabled: Bool { get set }            // Recording master switch; default: defaultIsEnabled
     public var minLogLevel: LBLogLevel { get set }    // Minimum severity recorded; default: .debug

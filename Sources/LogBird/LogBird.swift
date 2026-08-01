@@ -89,7 +89,15 @@ public extension LogBird {
     }
 
     /// Keys matched by default when redacting sensitive fields.
-    static let defaultSensitiveKeys: [String] = LBRedactor.defaultSensitiveKeys
+    ///
+    /// Includes curated needles: `"password"`, `"token"`, `"authorization"`, `"auth"`,
+    /// `"secret"`, `"apiKey"`, `"cookie"`, `"bearer"`, `"credentials"`, and `"privateKey"`.
+    ///
+    /// Normalization converts both the key and needles to lowercase and strips hyphens (`-`),
+    /// underscores (`_`), and whitespace characters. Substring matching is then performed,
+    /// so variants like `access_token`, `refresh_token`, `set-cookie`, `x-api-key`,
+    /// and `private_key` are automatically matched.
+    static let defaultSensitiveKeys: Set<String> = LBRedactor.defaultSensitiveKeys
 
     /// The string that replaces a redacted value.
     static let redactionPlaceholder: String = LBRedactor.placeholder
@@ -107,14 +115,15 @@ public extension LogBird {
         set { shared.redactSensitiveFields = newValue }
     }
 
-    /// The keys considered sensitive when redacting. A key is sensitive when it
-    /// contains any of these values; matching is case-insensitive and ignores
-    /// underscores, hyphens and whitespace, so `accessToken` and `ACCESS-TOKEN`
+    /// The keys considered sensitive when redacting. A key is sensitive when its
+    /// normalized representation contains any of these values. Matching is
+    /// case-insensitive and strips underscores (`_`), hyphens (`-`), and whitespace,
+    /// so `accessToken`, `access_token`, `ACCESS-TOKEN`, and `Access Token` all
     /// match `token`.
     ///
-    /// Setting this property replaces the default keys; append to
-    /// `defaultSensitiveKeys` to extend them.
-    static var sensitiveKeys: [String] {
+    /// Setting this property replaces the default keys; use `.union(...)` or
+    /// `.insert(...)` on `defaultSensitiveKeys` to extend them.
+    static var sensitiveKeys: Set<String> {
         get { shared.sensitiveKeys }
         set { shared.sensitiveKeys = newValue }
     }
@@ -179,17 +188,6 @@ public extension LogBird {
     ///   - file: `String` — source file. Defaults to `#fileID`.
     ///   - function: `String` — source function. Defaults to `#function`.
     ///   - line: `Int` — source line. Defaults to `#line`.
-    /// Records a log entry on the shared instance.
-    ///
-    /// - Parameters:
-    ///   - message: `String?` — free-text message. Use `LBLogMessage` to redact sensitive content.
-    ///   - extraMessages: `[LBExtraMessage]?` — labeled strings shown as separate sections.
-    ///   - additionalInfo: `[String: LBValue]?` — typed metadata keyed by name.
-    ///   - error: `Error?` — error to capture.
-    ///   - level: `LBLogLevel` — severity. Defaults to `.debug`.
-    ///   - file: `String` — source file. Defaults to `#fileID`.
-    ///   - function: `String` — source function. Defaults to `#function`.
-    ///   - line: `Int` — source line. Defaults to `#line`.
     static func log(_ message: String? = nil, extraMessages: [LBExtraMessage]? = nil, additionalInfo: [String: LBValue]? = nil, error: Error? = nil, level: LBLogLevel = .debug, file: String = #fileID, function: String = #function, line: Int = #line) {
         shared.log(message, extraMessages: extraMessages, additionalInfo: additionalInfo, error: error, level: level, file: file, function: function, line: line)
     }
@@ -200,7 +198,7 @@ public extension LogBird {
     ///   - message: `LBLogMessage` — privacy-aware interpolated message string.
     ///   - extraMessages: `[LBExtraMessage]?` — labeled strings shown as separate sections.
     ///   - additionalInfo: `[String: LBValue]?` — typed metadata keyed by name.
-    ///   - error: `Error?` — error to capture.
+    ///   - error: `Error?` — error to capture (includes `DecodingError`/`EncodingError` context).
     ///   - level: `LBLogLevel` — severity. Defaults to `.debug`.
     ///   - file: `String` — source file. Defaults to `#fileID`.
     ///   - function: `String` — source function. Defaults to `#function`.
@@ -270,14 +268,15 @@ public extension LogBird {
         set { manager.redactSensitiveFields = newValue }
     }
 
-    /// The keys considered sensitive when redacting. A key is sensitive when it
-    /// contains any of these values; matching is case-insensitive and ignores
-    /// underscores, hyphens and whitespace, so `accessToken` and `ACCESS-TOKEN`
+    /// The keys considered sensitive when redacting. A key is sensitive when its
+    /// normalized representation contains any of these values. Matching is
+    /// case-insensitive and strips underscores (`_`), hyphens (`-`), and whitespace,
+    /// so `accessToken`, `access_token`, `ACCESS-TOKEN`, and `Access Token` all
     /// match `token`.
     ///
-    /// Setting this property replaces the default keys; append to
-    /// `LogBird.defaultSensitiveKeys` to extend them.
-    var sensitiveKeys: [String] {
+    /// Setting this property replaces the default keys; use `.union(...)` or
+    /// `.insert(...)` on `LogBird.defaultSensitiveKeys` to extend them.
+    var sensitiveKeys: Set<String> {
         get { manager.sensitiveKeys }
         set { manager.sensitiveKeys = newValue }
     }

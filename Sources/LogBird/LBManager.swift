@@ -38,7 +38,7 @@ final class LBManager: @unchecked Sendable {
 
     private var storedMaxLogs: Int
     private var storedRedactSensitiveFields: Bool = true
-    private var storedSensitiveKeys: [String] = LBRedactor.defaultSensitiveKeys
+    private var storedSensitiveKeys: Set<String> = LBRedactor.defaultSensitiveKeys
 
     /// Whether recording is active. When `false`, `log(...)` returns without
     /// building, forwarding, storing or publishing anything. Toggled through
@@ -78,9 +78,10 @@ final class LBManager: @unchecked Sendable {
         set { dispatchQueue.sync { storedRedactSensitiveFields = newValue } }
     }
 
-    /// The keys considered sensitive when redacting. See `LBRedactor` for the
-    /// matching rules.
-    var sensitiveKeys: [String] {
+    /// The keys considered sensitive when redacting. Matching is case-insensitive,
+    /// lowercases keys, strips `-`, `_`, and whitespace, and performs substring matching.
+    /// See `LBRedactor` for the matching rules.
+    var sensitiveKeys: Set<String> {
         get { dispatchQueue.sync { storedSensitiveKeys } }
         set { dispatchQueue.sync { storedSensitiveKeys = newValue } }
     }
