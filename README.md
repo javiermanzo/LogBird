@@ -305,9 +305,17 @@ LogBird provides two layers of data privacy out of the box:
 
 Key names matching sensitive patterns are automatically redacted in `additionalInfo`, `extraMessages`, and `error.userInfo`.
 
-Default sensitive key patterns (`Set<String>`): `"password"`, `"token"`, `"authorization"`, `"auth"`, `"secret"`, `"apikey"`, `"cookie"`, `"bearer"`, `"credentials"`, `"privatekey"`.
-
-> **Key Normalization**: Keys passed via `.add` or `.set` and metadata keys being evaluated are automatically normalized (lowercased, stripping hyphens `-`, underscores `_`, and whitespace). Substring matching is applied, so variants like `access_token`, `refresh_token`, `set-cookie`, `x-api-key`, and `private_key` are automatically matched out of the box.
+> **Key Normalization & Substring Matching**:
+> All keys passed via `.add` or `.set` and metadata keys evaluated during logging are automatically normalized by converting to **lowercase** and stripping hyphens (`-`), underscores (`_`), and whitespace (` `). Substring matching is then applied against configured needles:
+>
+> | Original Key | Normalized Form | Matched Needle | Result |
+> | :--- | :--- | :--- | :--- |
+> | `ACCESS_TOKEN` / `access_token` | `accesstoken` | `"token"` | `<redacted>` |
+> | `Refresh-Token` / `REFRESH_TOKEN` | `refreshtoken` | `"token"` | `<redacted>` |
+> | `Set-Cookie` / `set_cookie` | `setcookie` | `"cookie"` | `<redacted>` |
+> | `X-API-KEY` / `X_Api_Key` | `xapikey` | `"apikey"` | `<redacted>` |
+> | `Private_Key` / `PRIVATE-KEY` | `privatekey` | `"privatekey"` | `<redacted>` |
+> | `Auth-Header` / `AUTH_CODE` | `authheader` / `authcode` | `"auth"` | `<redacted>` |
 
 Reconfigure sensitive keys at any time using `LBSensitiveKeysAction`:
 
