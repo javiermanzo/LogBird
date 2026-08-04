@@ -19,9 +19,11 @@ LogBird/
 ├── CONTRIBUTING.md                           # Developer contribution guidelines
 ├── AGENTS.md                                 # AI Agent technical specification (this file)
 ├── .agents/
-│   └── skill/
-│       └── logbird/
-│           └── SKILL.md                      # Agent skill for LogBird integration & context
+│   └── skills/
+│       ├── logbird/
+│       │   └── SKILL.md                      # Agent skill for LogBird integration & context
+│       └── logbird-v1-to-v2/
+│           └── SKILL.md                      # Agent skill for v1 → v2 migration
 ├── Sources/
 │   ├── LogBird/                              # Core Logging Target (No SwiftUI dependencies)
 │   │   ├── LogBird.swift                     # Public facade (static API & instance class)
@@ -166,7 +168,7 @@ public class LogBird: @unchecked Sendable {
 5. **Synchronized Documentation & Skill Maintenance**: Whenever code, public APIs, configurations, or features are added or modified, AI agents MUST update all corresponding documentation files:
    - `README.md` (user-facing library documentation and usage examples)
    - `AGENTS.md` (this file, updating API reference signatures, invariants, and data models)
-   - `.agents/skills/logbird/SKILL.md` and `.agents/skill/logbird/SKILL.md` (agent skill & context loader)
+   - `.agents/skills/logbird/SKILL.md` (agent skill & context loader)
 
 ---
 
