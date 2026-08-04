@@ -13,6 +13,18 @@ public enum LBLogLevel: String, Codable, CaseIterable, Sendable {
     case debug, info, warning, error, critical
 }
 
+// MARK: Comparable
+extension LBLogLevel: Comparable {
+
+    /// Orders levels by severity, from `.debug` (lowest) to `.critical`
+    /// (highest). The comparison uses the declaration order of the cases, not
+    /// the raw string value (which would sort alphabetically and is
+    /// meaningless for severity).
+    public static func < (lhs: LBLogLevel, rhs: LBLogLevel) -> Bool {
+        lhs.severityRank < rhs.severityRank
+    }
+}
+
 // MARK: Public
 public extension LBLogLevel {
 
@@ -49,6 +61,19 @@ extension LBLogLevel: CustomStringConvertible {
 
 // MARK: Internal
 extension LBLogLevel {
+
+    /// Numeric severity used only for ordering (`Comparable`) and threshold
+    /// checks (`minLogLevel`). The value mirrors the declaration order of the
+    /// cases so that `.debug < .info < .warning < .error < .critical`.
+    var severityRank: Int {
+        switch self {
+        case .debug: return 0
+        case .info: return 1
+        case .warning: return 2
+        case .error: return 3
+        case .critical: return 4
+        }
+    }
 
     /// Matching `OSLogType` used when forwarding the entry to OSLog.
     var osLogType: OSLogType {

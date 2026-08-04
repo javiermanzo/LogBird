@@ -224,7 +224,7 @@ final class LogBirdTests: XCTestCase {
             LogBird.identifier = nil
         }
 
-        XCTAssertEqual(LogBird.sensitiveKeys, LogBird.defaultSensitiveKeys)
+        XCTAssertEqual(LogBird.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys)
         XCTAssertTrue(LogBird.redactSensitiveFields)
         XCTAssertEqual(LogBird.maxLogs, 1000)
 
