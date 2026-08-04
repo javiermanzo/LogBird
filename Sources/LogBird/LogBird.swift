@@ -33,9 +33,9 @@ public class LogBird: @unchecked Sendable {
     ///   from `MyApp/AppDelegate.swift` uses `MyApp`). This scopes entries in
     ///   Console.app to whoever created the logger, instead of a generic label.
     ///
-    /// Recording is **disabled by default outside `DEBUG` builds**.
-    /// Pass `isEnabled: true` to force it on in release,
-    /// or toggle it later through the `isEnabled` property.
+    /// Recording is **disabled by default outside `DEBUG` builds**. Force it on
+    /// via `config: LBConfig(isEnabled: true)`, or toggle it at runtime through
+    /// the `isEnabled` property.
     ///
     /// Packages that need a stable, isolated subsystem regardless of host
     /// (e.g. an SDK) should pass `subsystem` explicitly at a single,
