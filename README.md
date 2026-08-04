@@ -464,7 +464,7 @@ LogBird is designed with AI coding agents and LLM integrations in mind. It inclu
 
 - **[AGENTS.md](AGENTS.md)**: Detailed codebase map, structural invariants, concurrency rules, and agent integration recipes.
 - **[.agents/skills/logbird/SKILL.md](.agents/skills/logbird/SKILL.md)**: Agent skill file providing full library context and code patterns for AI tools.
-- **[.agents/skills/logbird-v1-to-v2/SKILL.md](.agents/skills/logbird-v1-to-v2/SKILL.md)**: Migration guide and skill for upgrading integrations from LogBird v1.0.0 to v2.0.0.
+- **[.agents/skills/logbird-migration/SKILL.md](.agents/skills/logbird-migration/SKILL.md)**: Unified migration guide and skill for upgrading LogBird integrations across breaking releases (v1.0.0 → v2.0.0 → v2.1.0).
 
 ---
 

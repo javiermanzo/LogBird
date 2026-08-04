@@ -185,7 +185,7 @@ struct SettingsScreen: View {
 
 ---
 
-## 5. Upgrading from LogBird v1.x
+## 5. Upgrading from a previous LogBird release
 
-For projects migrating from LogBird 1.x to 2.0.0, refer to the dedicated migration skill at `[.agents/skills/logbird-v1-to-v2/SKILL.md](../logbird-v1-to-v2/SKILL.md)` for detailed breaking change checklists and side-by-side refactoring recipes.
+For projects migrating from an earlier LogBird version (v1.x → v2.0.0, or v2.0.0 → v2.1.0), refer to the unified migration skill at `[.agents/skills/logbird-migration/SKILL.md](../logbird-migration/SKILL.md)` for detailed breaking-change checklists and side-by-side refactoring recipes.
 

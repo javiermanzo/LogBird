@@ -22,8 +22,8 @@ LogBird/
 │   └── skills/
 │       ├── logbird/
 │       │   └── SKILL.md                      # Agent skill for LogBird integration & context
-│       └── logbird-v1-to-v2/
-│           └── SKILL.md                      # Agent skill for v1 → v2 migration
+│       └── logbird-migration/
+│           └── SKILL.md                      # Agent skill for migration (v1 → v2.x)
 ├── Sources/
 │   ├── LogBird/                              # Core Logging Target (No SwiftUI dependencies)
 │   │   ├── LogBird.swift                     # Public facade (static API & instance class)
@@ -169,6 +169,7 @@ public class LogBird: @unchecked Sendable {
    - `README.md` (user-facing library documentation and usage examples)
    - `AGENTS.md` (this file, updating API reference signatures, invariants, and data models)
    - `.agents/skills/logbird/SKILL.md` (agent skill & context loader)
+   - `.agents/skills/logbird-migration/SKILL.md` (unified migration guide across breaking releases)
 
 ---
 

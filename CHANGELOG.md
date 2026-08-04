@@ -5,6 +5,36 @@ All notable changes to LogBird will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-08-03
+
+### Added
+- **Centralized Configuration (`LBConfig`)**: Introduced `LBConfig` struct (`Hashable`, `Sendable`) consolidating `maxLogs`, `isEnabled`, `minLogLevel`, `redactSensitiveFields`, `sensitiveKeys`, and `identifier` into a single value. The whole `LogBird` logging entry (gate, redactor, identifier) is now derived from one config snapshot. Includes a new public `LogBird.config` property (static and instance) to read/replace the configuration atomically.
+- **Configurable Recording Gate (`isEnabled` + `minLogLevel`)**: Added `isEnabled: Bool` master switch (defaults to `true` under `DEBUG`, `false` otherwise, resolved via `#if DEBUG` inside `LBConfig.init`) and `minLogLevel: LBLogLevel` severity floor. When recording is disabled or the entry is below the threshold, `log(...)` returns early after a single queue hop — no OSLog forwarding, storage, or publishing. `clearLogs()` and `export()` remain ungated. Available on both static and instance facades.
+- **Layered Sensitive Keys API (`LBSensitiveKeysAction`)**: Introduced `LBSensitiveKeysAction` enum with `.add([String])`, `.set([String])`, `.reset`, and `.clear` cases, exposed via `LogBird.sensitiveKeys(_:)` (static and instance) and `LBConfig.sensitiveKeys(_:)`. New keys are normalized at insertion time (lowercased, stripping `-`, `_`, and whitespace).
+- **Global Default Sensitive Keys**: Added thread-safe global application defaults through `LogBird.setDefaultSensitiveKeys(_:)` and read-only `LogBird.defaultSensitiveKeys` (`Set<String>`). Per-instance configs either inherit these globals (with optional `.add` extensions) or define an explicit override set via `.set`.
+- **`LBLogLevel: Comparable`**: `LBLogLevel` now conforms to `Comparable`, ordered by declaration severity (`.debug < .info < .warning < .error < .critical`) via an internal `severityRank`, not the alphabetical raw value. Required by the `minLogLevel` floor.
+- **Expanded Default Sensitive Key Set**: Extended the curated default needles from 6 to 10: `"password"`, `"token"`, `"authorization"`, `"auth"`, `"secret"`, `"apikey"`, `"cookie"`, `"bearer"`, `"credentials"`, `"privatekey"`. Defaults are now pre-normalized at declaration time.
+- **Convenience Initializer**: Added `LogBird.init(subsystem:category:fileID:maxLogs:minLogLevel:)` convenience initializer exposing the most common tuning knobs without requiring a full `LBConfig`.
+
+### Modified
+- **`LogBird.init` Signature**: The designated initializer parameter `maxLogs: Int = 1000` was replaced by `config: LBConfig = LBConfig()`. **[Breaking]** Migrate with `LogBird(config: LBConfig(maxLogs: ...))` or the new convenience initializer.
+- **`sensitiveKeys` Property**: Changed from a read-write `[String]` property to a read-only `Set<String>` view on both static and instance facades. **[Breaking]** Direct assignment (`LogBird.sensitiveKeys = [...]`) no longer compiles; reconfigure via `LogBird.sensitiveKeys(_:)` with an `LBSensitiveKeysAction` (`.add`, `.set`, `.reset`, `.clear`).
+- **`defaultSensitiveKeys` Semantics**: Changed from a per-instance `[String]` constant (`static let`) to the global application defaults accessor (`static var`, `Set<String>`, thread-safe). **[Breaking]** It now reflects/overrides app-wide defaults instead of the shared instance baseline.
+- **`LBManager` State Consolidation**: Replaced the scattered `storedMaxLogs`, `storedRedactSensitiveFields`, `storedSensitiveKeys`, and `storedIdentifier` fields with a single `storedConfig: LBConfig` value. All configuration reads/writes now go through one atomic `dispatchQueue.sync`.
+- **Atomic Per-Field Config Setters**: Per-field setters (`maxLogs`, `identifier`, `redactSensitiveFields`, `isEnabled`, `minLogLevel`) now mutate `storedConfig` inside a single `dispatchQueue.sync`, eliminating the prior read-modify-write TOCTOU window across two queue hops.
+
+### Fixed
+- **Config TOCTOU Race**: Resolved a time-of-check/time-of-use race where a concurrent change to a different config field could be clobbered by a read-modify-write spanning two queue hops. All field setters are now atomic.
+- **Snapshot Consistency**: The OSLog identifier is now read from the same config snapshot used by the gate and redactor, so a single log entry can no longer be split across two configurations by a concurrent change.
+- **Dead State Removal**: Removed the unused `storedIdentifier` property and `LogSnapshot` struct left over after the `LBConfig` consolidation.
+- **Dangling `defaultIsEnabled` Reference**: Removed stale documentation/SwiftDoc references to a `LogBird.defaultIsEnabled` symbol that was never defined; the `#if DEBUG` default now lives once inside `LBConfig.init`.
+
+### Removed
+- **`maxLogs:` Parameter on `LogBird.init`**: Replaced by `config: LBConfig`. **[Breaking]**
+- **`LogBird.sensitiveKeys` Setter**: Direct assignment is no longer supported; use the `LBSensitiveKeysAction` API. **[Breaking]**
+- **`LogBird.defaultSensitiveKeys` as a `[String]` `static let`**: Replaced by the global `Set<String>` accessor. **[Breaking]**
+- **Public `LBSensitiveKeysState`**: Scoped to internal (backs a private property of `LBConfig` and was never part of the public surface).
+
 ## [2.0.0] - 2026-07-31
 
 ### Added
