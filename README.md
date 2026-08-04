@@ -29,6 +29,7 @@
   - [Static Logging](#static-logging)
   - [Instance Logging](#instance-logging)
   - [Log Severity Levels](#log-severity-levels)
+  - [Enabling & Filtering Logs](#enabling--filtering-logs)
   - [Rich Metadata & Context](#rich-metadata--context)
   - [Privacy & Sensitive Data Redaction](#privacy--sensitive-data-redaction)
   - [Combine Real-Time Streaming](#combine-real-time-streaming)
@@ -55,6 +56,7 @@
 - 📤 **Multi-Format Log Exporter**: Export stored history or filtered entries to `.json`, `.jsonLines` (NDJSON), or `.plainText` as in-memory `Data` or written to `File`.
 - 📱 **SwiftUI Debug Viewer (`LogBirdUI`)**: Optional, ready-to-use SwiftUI view (`LBLogsView`) with search, level filter, auto-scrolling, clear logs, and OS-native export triggers (iOS Share Sheet, macOS Save Panel).
 - 🧩 **Modular Packaging**: Separate `LogBird` (core logic) and `LogBirdUI` (SwiftUI interface) SPM products.
+- 🚦 **Build-Aware Recording**: Logging is enabled by default only under `DEBUG` and can be toggled at runtime or filtered by minimum severity — no code changes needed to stay silent in release.
 
 ---
 
@@ -191,6 +193,77 @@ Supported levels in `LBLogLevel` (ordered from lowest to highest severity):
 | `.error` | ❌ | `xmark.octagon` | Standard runtime errors and handled failures. |
 | `.critical` | 🚨 | `flame` | Severe system failures requiring immediate action. |
 
+### Centralized Configuration (`LBConfig`)
+
+All logger settings (`maxLogs`, `isEnabled`, `minLogLevel`, `redactSensitiveFields`, `sensitiveKeys`, `identifier`) can be managed atomically through `LBConfig`:
+
+```swift
+// Configure shared instance via LBConfig
+LogBird.config = LBConfig(
+    maxLogs: 500,
+    isEnabled: true,
+    minLogLevel: .info,
+    redactSensitiveFields: true,
+    identifier: "SESSION-99"
+)
+
+// Mutate specific properties via config or direct property forwarders
+LogBird.config.minLogLevel = .warning
+LogBird.config.sensitiveKeys(.add(["ssn", "passcode"]))
+
+// Create a logger instance with a custom LBConfig
+let customLogger = LogBird(
+    subsystem: "com.myapp.network",
+    category: "HTTP",
+    config: LBConfig(maxLogs: 200, minLogLevel: .error)
+)
+```
+
+#### Master Switch: `isEnabled`
+
+A runtime on/off gate for the whole logger. When `false`, `log(...)` is a no-op — nothing is forwarded to OSLog, stored, or published.
+
+```swift
+// Default: enabled under DEBUG, disabled otherwise.
+// LogBird.isEnabled            // == build default (DEBUG)
+
+// Force logging on permanently (e.g. field-debug builds)
+LogBird.isEnabled = true
+
+// Drive it from your own flags or custom build macros
+#if INTERNAL_BETA
+LogBird.isEnabled = true
+#endif
+
+LogBird.isEnabled = FeatureFlags.verboseLogging
+```
+
+Per-instance works the same way — flip the property right after construction:
+
+```swift
+let logger = LogBird(subsystem: "com.myapp.network", category: "HTTP")
+logger.isEnabled = true
+```
+
+#### Severity Threshold: `minLogLevel`
+
+Keep only entries at or above a severity. Lower-severity entries are dropped before any work is done. `LBLogLevel` is ordered `.debug < .info < .warning < .error < .critical`.
+
+```swift
+// Silence debug & info; keep warning, error and critical
+LogBird.minLogLevel = .warning
+
+// Reset to record everything (default)
+LogBird.minLogLevel = .debug
+```
+
+#### Notes
+
+- Changes apply to the **next** `log(...)` call.
+- `isEnabled` wins over `minLogLevel`: when disabled, nothing is recorded regardless of the floor.
+- `clearLogs()` and `export()` are **not** gated — they always operate on the recorded history, so you can still read or reset it while logging is off.
+- The DEBUG default uses the host app's build configuration, since the package is compiled together with it.
+
 ### Rich Metadata & Context
 
 LogBird supports rich, typed metadata, labeled message sections, and detailed error capturing.
@@ -233,11 +306,38 @@ LogBird provides two layers of data privacy out of the box:
 
 Key names matching sensitive patterns are automatically redacted in `additionalInfo`, `extraMessages`, and `error.userInfo`.
 
-Default sensitive key patterns: `"password"`, `"token"`, `"authorization"`, `"secret"`, `"apiKey"`, `"cookie"`.
+> **Key Normalization & Substring Matching**:
+> All keys passed via `.add` or `.set` and metadata keys evaluated during logging are automatically normalized by converting to **lowercase** and stripping hyphens (`-`), underscores (`_`), and whitespace (` `). Substring matching is then applied against configured needles:
+>
+> | Original Key | Normalized Form | Matched Needle | Result |
+> | :--- | :--- | :--- | :--- |
+> | `ACCESS_TOKEN` / `access_token` | `accesstoken` | `"token"` | `<redacted>` |
+> | `Refresh-Token` / `REFRESH_TOKEN` | `refreshtoken` | `"token"` | `<redacted>` |
+> | `Set-Cookie` / `set_cookie` | `setcookie` | `"cookie"` | `<redacted>` |
+> | `X-API-KEY` / `X_Api_Key` | `xapikey` | `"apikey"` | `<redacted>` |
+> | `Private_Key` / `PRIVATE-KEY` | `privatekey` | `"privatekey"` | `<redacted>` |
+> | `Auth-Header` / `AUTH_CODE` | `authheader` / `authcode` | `"auth"` | `<redacted>` |
+
+Reconfigure sensitive keys at any time using `LBSensitiveKeysAction`:
 
 ```swift
-// Customize global or per-instance sensitive keys
-LogBird.sensitiveKeys += ["ssn", "creditCard", "passcode"]
+// Configure global default sensitive keys for the entire application
+LogBird.setDefaultSensitiveKeys(["password", "token", "auth", "x-api-key", "my_app_secret"])
+
+// Add custom keys to a logger instance (preserves inherited global defaults)
+LogBird.sensitiveKeys(.add(["ssn", "creditCard", "passcode"]))
+
+// Replace sensitive keys for a logger instance entirely (bypasses global defaults)
+LogBird.sensitiveKeys(.set(["customSecret"]))
+
+// Reset logger instance back to pure global default sensitive keys
+LogBird.sensitiveKeys(.reset)
+
+// Clear all sensitive keys for a logger instance (disable key-based redaction)
+LogBird.sensitiveKeys(.clear)
+
+// Read current sensitive keys set (read-only)
+let currentKeys: Set<String> = LogBird.sensitiveKeys
 
 // Logging dictionary with sensitive keys
 LogBird.log("User login attempt", additionalInfo: [
@@ -352,6 +452,7 @@ customLogger.clearLogs()
 ## How It Works
 
 - **Storage**: Entries are stored in a bounded in-memory array (`[LBLog]`) capped at `maxLogs` (default `1000`). Trimming happens automatically when the limit is exceeded. Setting `maxLogs = 0` turns off in-memory storage while keeping Combine streaming active.
+- **Recording Gate**: Every `log(...)` call is checked against `isEnabled` and `minLogLevel` first. Recording is skipped entirely (no OSLog forward, no storage, no publish) when the logger is off or the entry is below the severity floor. By default `isEnabled` is on only under `DEBUG`.
 - **System Logging**: Every entry is formatted into a readable block and forwarded to Apple's native `os.Logger`. View output in macOS Console.app or run `log stream --subsystem com.myapp` in Terminal.
 - **Thread Safety**: All state reads and writes are guarded by an internal serial queue (`com.logbird.accessQueue`). Combine event dispatching runs asynchronously on a separate serial queue (`com.logbird.publishQueue`) to avoid re-entrancy deadlocks when subscriber callbacks trigger subsequent log calls.
 
@@ -363,7 +464,7 @@ LogBird is designed with AI coding agents and LLM integrations in mind. It inclu
 
 - **[AGENTS.md](AGENTS.md)**: Detailed codebase map, structural invariants, concurrency rules, and agent integration recipes.
 - **[.agents/skills/logbird/SKILL.md](.agents/skills/logbird/SKILL.md)**: Agent skill file providing full library context and code patterns for AI tools.
-- **[.agents/skills/logbird-v1-to-v2/SKILL.md](.agents/skills/logbird-v1-to-v2/SKILL.md)**: Migration guide and skill for upgrading integrations from LogBird v1.0.0 to v2.0.0.
+- **[.agents/skills/logbird-migration/SKILL.md](.agents/skills/logbird-migration/SKILL.md)**: Unified migration guide and skill for upgrading LogBird integrations across breaking releases (v1.0.0 → v2.0.0 → v2.1.0).
 
 ---
 

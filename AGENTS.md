@@ -19,9 +19,11 @@ LogBird/
 ├── CONTRIBUTING.md                           # Developer contribution guidelines
 ├── AGENTS.md                                 # AI Agent technical specification (this file)
 ├── .agents/
-│   └── skill/
-│       └── logbird/
-│           └── SKILL.md                      # Agent skill for LogBird integration & context
+│   └── skills/
+│       ├── logbird/
+│       │   └── SKILL.md                      # Agent skill for LogBird integration & context
+│       └── logbird-migration/
+│           └── SKILL.md                      # Agent skill for migration (v1 → v2.x)
 ├── Sources/
 │   ├── LogBird/                              # Core Logging Target (No SwiftUI dependencies)
 │   │   ├── LogBird.swift                     # Public facade (static API & instance class)
@@ -62,7 +64,7 @@ When modifying or extending LogBird, AI agents MUST preserve the following invar
 
 ### 3.1 Concurrency & Thread-Safety Model
 1. **Dual Queue Isolation in `LBManager`**:
-   - `dispatchQueue` (`com.logbird.accessQueue`): Serial queue protecting state reads and mutations (`logs`, `storedMaxLogs`, `storedIdentifier`, `storedRedactSensitiveFields`, `storedSensitiveKeys`).
+   - `dispatchQueue` (`com.logbird.accessQueue`): Serial queue protecting state reads and mutations (`logs`, `storedConfig`). All configuration (maxLogs, isEnabled, minLogLevel, redactSensitiveFields, sensitiveKeysState, identifier) lives consolidated inside the single `storedConfig: LBConfig` value.
    - `publishQueue` (`com.logbird.publishQueue`): Serial queue dedicated exclusively to asynchronous Combine event dispatch (`publishQueue.async { logsSubject.send(event) }`).
    - **CRITICAL RE-ENTRANCY RULE**: Never publish Combine events while holding a lock on `dispatchQueue`. Subscribers may perform logging calls in response to `.recorded` events, which would cause a re-entrancy deadlock if `dispatchQueue` were locked.
 2. **`@unchecked Sendable` Decorator on `LogBird` and `LBManager`**:
@@ -70,16 +72,23 @@ When modifying or extending LogBird, AI agents MUST preserve the following invar
 3. **`@MainActor` Isolation in UI Layer**:
    - `LBLogsView` and `LogsViewModel` are isolated to `@MainActor`. Combine subscriber events received from `publishQueue` are bounced to `DispatchQueue.main` before updating view state.
 
-### 3.2 Privacy & Sensitive Data Redaction
+### 3.2 Recording Gate (`isEnabled` / `minLogLevel`)
+1. **First thing in `LBManager.log(...)`**: snapshot `storedConfig` (read via the `config` getter) in a single `dispatchQueue.sync`, then `return` early when `isEnabled == false` or `level < minLogLevel`. The gate MUST run before building the `LBLog`, forwarding to OSLog, mutating history or publishing — the disabled path performs no work. The whole entry (gate, redactor and identifier) is derived from that one snapshot.
+2. **`isEnabled` (master switch)** defaults to a compile-time constant resolved via `#if DEBUG` (`true` under DEBUG, `false` otherwise), centralized in `LBConfig.init`. Because the package is compiled with the host app, the flag reflects the integrator's build configuration. It is a settable `Bool` so integrators can drive it from their own flags/macros or force it on at init.
+3. **`minLogLevel` (severity floor)** defaults to `.debug` (everything passes when enabled). Requires `LBLogLevel: Comparable`, ordered by declaration severity (`.debug < .info < .warning < .error < .critical`) via an internal `severityRank` — NOT the alphabetical raw value.
+4. **NOT gated**: `clearLogs()` and `export()` always operate on recorded history regardless of `isEnabled`/`minLogLevel`. Only `log(...)` recording is gated.
+
+### 3.3 Privacy & Sensitive Data Redaction
 1. **Automatic Field Redaction (`LBRedactor`)**:
    - Scans keys in `additionalInfo`, `extraMessages`, and `error.userInfo`.
-   - Keys are normalized (lowercased, stripping `_`, `-`, and whitespace).
-   - If a key contains any configured needle in `sensitiveKeys` (default: `"password"`, `"token"`, `"authorization"`, `"secret"`, `"apiKey"`, `"cookie"`), the value is swapped for `LBRedactor.placeholder` (`"<redacted>"`).
+   - Keys and needles are normalized (lowercased, stripping `_`, `-`, and whitespace). Keys added via `.add` or `.set` are normalized at insertion time.
+   - If a normalized key contains any configured needle in `sensitiveKeys` (default: `"password"`, `"token"`, `"authorization"`, `"auth"`, `"secret"`, `"apikey"`, `"cookie"`, `"bearer"`, `"credentials"`, `"privatekey"`), the value is swapped for `LBRedactor.placeholder` (`"<redacted>"`).
+   - Substring matching ensures variants like `access_token`, `refresh_token`, `set-cookie`, `x-api-key`, and `private_key` are automatically matched.
 2. **Inline Interpolation Privacy (`LBLogMessage`)**:
    - Uses Swift String Interpolation to replace `.private` interpolations with `LBRedactor.placeholder` during message assembly.
    - Example: `LogBird.log("User \(username, privacy: .private) logged in")`.
 
-### 3.3 Zero Third-Party Dependencies
+### 3.4 Zero Third-Party Dependencies
 - `LogBird` core MUST only rely on `Foundation`, `Combine`, and `OSLog`.
 - `LogBirdUI` MUST only rely on `SwiftUI` and `LogBird`.
 - Do NOT introduce SPM package dependencies.
@@ -99,14 +108,23 @@ public class LogBird: @unchecked Sendable {
         subsystem: String = resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier),
         category: String? = nil,
         fileID: String = #fileID,
-        maxLogs: Int = 1000
+        config: LBConfig = LBConfig()
     )
 
     // Configuration Properties
+    public static var config: LBConfig { get set }
+    public var config: LBConfig { get set }
     public var maxLogs: Int { get set }
     public var redactSensitiveFields: Bool { get set }
-    public var sensitiveKeys: [String] { get set }
+    public static func setDefaultSensitiveKeys(_ keys: [String])
+    public static var defaultSensitiveKeys: Set<String> { get }
+    public static var sensitiveKeys: Set<String> { get }
+    public static func sensitiveKeys(_ action: LBSensitiveKeysAction)
+    public var sensitiveKeys: Set<String> { get }
+    public func sensitiveKeys(_ action: LBSensitiveKeysAction)
     public var identifier: String? { get set }
+    public var isEnabled: Bool { get set }            // Recording master switch; default: true under DEBUG, false otherwise
+    public var minLogLevel: LBLogLevel { get set }    // Minimum severity recorded; default: .debug
 
     // Synchronous Read & Combine Stream
     public var logs: [LBLog] { get }
@@ -130,10 +148,12 @@ public class LogBird: @unchecked Sendable {
 | Model | Conformances | Description |
 | :--- | :--- | :--- |
 | `LBLog` | `Codable, Identifiable, Hashable, Sendable` | Core record: `id`, `level`, `message`, `extraMessages`, `additionalInfo`, `error`, `createdAt`, `location`, `source`. |
-| `LBLogLevel` | `String, Codable, CaseIterable, Sendable` | Severities: `.debug`, `.info`, `.warning`, `.error`, `.critical`. Maps to `OSLogType` & emojis. |
+| `LBConfig` | `Hashable, Sendable` | Centralized config: `maxLogs`, `isEnabled`, `minLogLevel`, `redactSensitiveFields`, `sensitiveKeys`, `identifier`. |
+| `LBLogLevel` | `String, Codable, CaseIterable, Comparable, Sendable` | Severities: `.debug`, `.info`, `.warning`, `.error`, `.critical`. Ordered by severity (not alphabetically) and maps to `OSLogType` & emojis. |
 | `LBValue` | `Codable, Hashable, CustomStringConvertible, Sendable` | Typed metadata: `.string`, `.int`, `.double`, `.bool`, `.url`, `.array`, `.dictionary`. Expressible by literals. |
 | `LBLogMessage` | `ExpressibleByStringInterpolation, Hashable, Sendable` | Custom interpolation wrapper supporting `\(value, privacy: .private)`. |
 | `LBError` | `Codable, Hashable, Sendable` | Captures domain, code, type, localizedDescription, and stringified `userInfo` (merged with `DecodingError` / `EncodingError` context). |
+| `LBSensitiveKeysAction` | `Hashable, Sendable` | Action enum for instance redaction configuration: `.add([String])`, `.set([String])`, `.reset`, `.clear`. |
 | `LBExportFormat` | `String, Codable, CaseIterable, Sendable` | Encoding formats: `.json`, `.jsonLines` (NDJSON), `.plainText`. |
 | `LBExportOutput` | `Sendable, Equatable` | Result enum: `.data(Data)` or `.file(URL, data: Data)`. |
 
@@ -142,9 +162,14 @@ public class LogBird: @unchecked Sendable {
 ## 6. Rules for AI Agents Modifying Code
 
 1. **Test Execution**: Always run `swift test` (using `BypassSandbox: true` if sandboxed) to verify clean execution.
-2. **Preserve SwiftDoc Comments**: Retain all docstrings (`///`). When adding or altering methods, update SwiftDoc comments accordingly.
+2. **Complete SwiftDoc Comments**: Every new or modified piece of code (types, structs, enums, properties, methods, parameter lists) MUST include clean, complete SwiftDoc comments (`///` or `/** ... */`).
 3. **No Unsafe State Access**: Do not access `logs` array or internal variables in `LBManager` outside `dispatchQueue.sync` or `dispatchQueue.async`.
 4. **Swift 6 Compatibility**: Keep all types conformant to `Sendable` where appropriate.
+5. **Synchronized Documentation & Skill Maintenance**: Whenever code, public APIs, configurations, or features are added or modified, AI agents MUST update all corresponding documentation files:
+   - `README.md` (user-facing library documentation and usage examples)
+   - `AGENTS.md` (this file, updating API reference signatures, invariants, and data models)
+   - `.agents/skills/logbird/SKILL.md` (agent skill & context loader)
+   - `.agents/skills/logbird-migration/SKILL.md` (unified migration guide across breaking releases)
 
 ---
 

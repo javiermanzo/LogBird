@@ -33,6 +33,10 @@ public class LogBird: @unchecked Sendable {
     ///   from `MyApp/AppDelegate.swift` uses `MyApp`). This scopes entries in
     ///   Console.app to whoever created the logger, instead of a generic label.
     ///
+    /// Recording is **disabled by default outside `DEBUG` builds**. Force it on
+    /// via `config: LBConfig(isEnabled: true)`, or toggle it at runtime through
+    /// the `isEnabled` property.
+    ///
     /// Packages that need a stable, isolated subsystem regardless of host
     /// (e.g. an SDK) should pass `subsystem` explicitly at a single,
     /// package-internal call site.
@@ -41,15 +45,35 @@ public class LogBird: @unchecked Sendable {
     ///   - subsystem: `String` — Reverse-DNS identifier used by OSLog (e.g. `com.example.myapp`). Defaults to host bundle identifier.
     ///   - category: `String?` — OSLog category scoping entries in Console.app. Pass `nil` to infer caller module from `fileID`.
     ///   - fileID: `String` — `#fileID` string at call site, used to infer `category` when `nil`.
-    ///   - maxLogs: `Int` — Maximum history entries kept in memory. `0` disables history retention. Defaults to `1000`.
+    ///   - config: `LBConfig` — Centralized configuration options. Defaults to `LBConfig()`.
     public init(
         subsystem: String = resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier),
         category: String? = nil,
         fileID: String = #fileID,
-        maxLogs: Int = 1000
+        config: LBConfig = LBConfig()
     ) {
         let resolvedCategory = category ?? Self.defaultCategory(fileID: fileID)
-        manager = LBManager(subsystem: subsystem, category: resolvedCategory, maxLogs: maxLogs)
+        manager = LBManager(subsystem: subsystem, category: resolvedCategory, config: config)
+    }
+
+    /// Convenience initializer supporting direct parameter overrides for the
+    /// most common tuning knobs. The recording master switch (`isEnabled`) is
+    /// not exposed here: it defaults to the build configuration and can be
+    /// flipped at runtime through the `isEnabled` property, e.g.
+    /// `let logger = LogBird(...); logger.isEnabled = false`.
+    public convenience init(
+        subsystem: String = resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier),
+        category: String? = nil,
+        fileID: String = #fileID,
+        maxLogs: Int = 1000,
+        minLogLevel: LBLogLevel = .debug
+    ) {
+        self.init(
+            subsystem: subsystem,
+            category: category,
+            fileID: fileID,
+            config: LBConfig(maxLogs: maxLogs, minLogLevel: minLogLevel)
+        )
     }
 }
 
@@ -60,6 +84,12 @@ public extension LogBird {
     /// `general` as category, or a stable default where the bundle provides
     /// none (e.g. tests or command-line tools).
     static let shared = LogBird(subsystem: resolvedSubsystem(bundleIdentifier: Bundle.main.bundleIdentifier), category: "general")
+
+    /// The centralized configuration of the shared logger instance.
+    static var config: LBConfig {
+        get { shared.config }
+        set { shared.config = newValue }
+    }
 
     /// Publishes history events as they happen: `recorded` for each new entry
     /// and `cleared` when the history is emptied. Earlier events are not
@@ -80,9 +110,6 @@ public extension LogBird {
         set { shared.maxLogs = newValue }
     }
 
-    /// Keys matched by default when redacting sensitive fields.
-    static let defaultSensitiveKeys: [String] = LBRedactor.defaultSensitiveKeys
-
     /// The string that replaces a redacted value.
     static let redactionPlaceholder: String = LBRedactor.placeholder
 
@@ -99,16 +126,42 @@ public extension LogBird {
         set { shared.redactSensitiveFields = newValue }
     }
 
-    /// The keys considered sensitive when redacting. A key is sensitive when it
-    /// contains any of these values; matching is case-insensitive and ignores
-    /// underscores, hyphens and whitespace, so `accessToken` and `ACCESS-TOKEN`
-    /// match `token`.
+    /// Reconfigures global default sensitive key patterns for the entire application.
     ///
-    /// Setting this property replaces the default keys; append to
-    /// `defaultSensitiveKeys` to extend them.
-    static var sensitiveKeys: [String] {
-        get { shared.sensitiveKeys }
-        set { shared.sensitiveKeys = newValue }
+    /// Loggers inheriting global defaults will automatically match these key patterns.
+    /// Input keys are automatically normalized (lowercased, stripping `-`, `_`, and whitespace).
+    ///
+    /// - Parameter keys: `[String]` — Array of key patterns to set as application defaults.
+    static func setDefaultSensitiveKeys(_ keys: [String]) {
+        LBRedactor.globalDefaultSensitiveKeys = Set(keys)
+    }
+
+    /// Read-only set of current global default sensitive key patterns.
+    static var defaultSensitiveKeys: Set<String> {
+        LBRedactor.globalDefaultSensitiveKeys
+    }
+
+    /// The current sensitive key patterns used when redacting fields on the shared instance.
+    /// Read-only. Returns normalized key needles.
+    /// Reconfigure using `LogBird.sensitiveKeys(_:)` or `LogBird.config.sensitiveKeys(...)`.
+    static var sensitiveKeys: Set<String> {
+        shared.sensitiveKeys
+    }
+
+    /// Configures sensitive keys used for automatic field redaction on the shared instance.
+    ///
+    /// Examples:
+    /// ```swift
+    /// LogBird.setDefaultSensitiveKeys(["password", "token", "my_app_secret"])  // Application defaults
+    /// LogBird.sensitiveKeys(.add(["ssn", "creditCard"]))                      // Add custom keys for shared
+    /// LogBird.sensitiveKeys(.set(["customKey"]))                              // Override shared keys completely
+    /// LogBird.sensitiveKeys(.reset)                                           // Reset shared to pure defaults
+    /// LogBird.sensitiveKeys(.clear)                                           // Disable key redaction for shared
+    /// ```
+    ///
+    /// - Parameter action: `LBSensitiveKeysAction` — `.add(keys)`, `.set(keys)`, `.reset`, or `.clear`.
+    static func sensitiveKeys(_ action: LBSensitiveKeysAction) {
+        shared.sensitiveKeys(action)
     }
 
     /// An optional identifier prepended to each OSLog line for the shared
@@ -118,6 +171,32 @@ public extension LogBird {
         set { shared.identifier = newValue }
     }
 
+    /// Whether the shared logger records entries. When `false`, `log(...)`
+    /// is a no-op: nothing is forwarded to OSLog, stored or published.
+    ///
+    /// Defaults to `true` under `DEBUG` and `false` otherwise. Flip
+    /// it at runtime to enable logging permanently, gate it behind your own
+    /// flags, or drive it from custom build macros.
+    ///
+    /// Changes apply to the next `log(...)` call. `clearLogs()` and `export()`
+    /// always operate on the recorded history regardless of this value.
+    static var isEnabled: Bool {
+        get { shared.isEnabled }
+        set { shared.isEnabled = newValue }
+    }
+
+    /// The minimum severity the shared logger records. An entry is recorded
+    /// only when its `level` is greater than or equal to this value; entries
+    /// below it are dropped before any work is done.
+    ///
+    /// Defaults to `.debug` (everything passes when `isEnabled` is on). Raise
+    /// it to silence noisy levels, e.g. `.warning` keeps only warnings,
+    /// errors and criticals.
+    static var minLogLevel: LBLogLevel {
+        get { shared.minLogLevel }
+        set { shared.minLogLevel = newValue }
+    }
+
     /// Records a log entry on the shared instance.
     ///
     /// - Parameters:
@@ -125,17 +204,6 @@ public extension LogBird {
     ///   - extraMessages: `[LBExtraMessage]?` — labeled strings shown as separate sections.
     ///   - additionalInfo: `[String: LBValue]?` — typed metadata keyed by name.
     ///   - error: `Error?` — error to capture (includes `DecodingError`/`EncodingError` context).
-    ///   - level: `LBLogLevel` — severity. Defaults to `.debug`.
-    ///   - file: `String` — source file. Defaults to `#fileID`.
-    ///   - function: `String` — source function. Defaults to `#function`.
-    ///   - line: `Int` — source line. Defaults to `#line`.
-    /// Records a log entry on the shared instance.
-    ///
-    /// - Parameters:
-    ///   - message: `String?` — free-text message. Use `LBLogMessage` to redact sensitive content.
-    ///   - extraMessages: `[LBExtraMessage]?` — labeled strings shown as separate sections.
-    ///   - additionalInfo: `[String: LBValue]?` — typed metadata keyed by name.
-    ///   - error: `Error?` — error to capture.
     ///   - level: `LBLogLevel` — severity. Defaults to `.debug`.
     ///   - file: `String` — source file. Defaults to `#fileID`.
     ///   - function: `String` — source function. Defaults to `#function`.
@@ -150,7 +218,7 @@ public extension LogBird {
     ///   - message: `LBLogMessage` — privacy-aware interpolated message string.
     ///   - extraMessages: `[LBExtraMessage]?` — labeled strings shown as separate sections.
     ///   - additionalInfo: `[String: LBValue]?` — typed metadata keyed by name.
-    ///   - error: `Error?` — error to capture.
+    ///   - error: `Error?` — error to capture (includes `DecodingError`/`EncodingError` context).
     ///   - level: `LBLogLevel` — severity. Defaults to `.debug`.
     ///   - file: `String` — source file. Defaults to `#fileID`.
     ///   - function: `String` — source function. Defaults to `#function`.
@@ -184,6 +252,12 @@ public extension LogBird {
 
 // MARK: Public
 public extension LogBird {
+
+    /// The centralized configuration of this logger instance.
+    var config: LBConfig {
+        get { manager.config }
+        set { manager.config = newValue }
+    }
 
     /// Publishes history events as they happen: `recorded` for each new entry
     /// and `cleared` when the history is emptied. Earlier events are not
@@ -220,16 +294,26 @@ public extension LogBird {
         set { manager.redactSensitiveFields = newValue }
     }
 
-    /// The keys considered sensitive when redacting. A key is sensitive when it
-    /// contains any of these values; matching is case-insensitive and ignores
-    /// underscores, hyphens and whitespace, so `accessToken` and `ACCESS-TOKEN`
-    /// match `token`.
+    /// The current sensitive key patterns used when redacting fields on this instance.
+    /// Read-only. Returns normalized key needles.
+    /// Reconfigure using `logger.sensitiveKeys(_:)` or `logger.config.sensitiveKeys(...)`.
+    var sensitiveKeys: Set<String> {
+        manager.sensitiveKeys
+    }
+
+    /// Configures sensitive keys used for automatic field redaction on this instance.
     ///
-    /// Setting this property replaces the default keys; append to
-    /// `LogBird.defaultSensitiveKeys` to extend them.
-    var sensitiveKeys: [String] {
-        get { manager.sensitiveKeys }
-        set { manager.sensitiveKeys = newValue }
+    /// Examples:
+    /// ```swift
+    /// logger.sensitiveKeys(.add(["ssn", "creditCard"]))                      // Add custom keys
+    /// logger.sensitiveKeys(.set(["customKey"]))                              // Override instance keys completely
+    /// logger.sensitiveKeys(.reset)                                           // Reset to pure global defaults
+    /// logger.sensitiveKeys(.clear)                                           // Disable key-based redaction
+    /// ```
+    ///
+    /// - Parameter action: `LBSensitiveKeysAction` — `.add(keys)`, `.set(keys)`, `.reset`, or `.clear`.
+    func sensitiveKeys(_ action: LBSensitiveKeysAction) {
+        manager.sensitiveKeys(action)
     }
 
     /// An optional identifier prepended to each OSLog line for this instance,
@@ -237,6 +321,32 @@ public extension LogBird {
     var identifier: String? {
         get { manager.identifier }
         set { manager.identifier = newValue }
+    }
+
+    /// Whether this logger records entries. When `false`, `log(...)` is a
+    /// no-op: nothing is forwarded to OSLog, stored or published.
+    ///
+    /// Defaults to `true` under `DEBUG` and `false` otherwise. Flip it at runtime
+    /// to enable logging permanently, gate it behind your own flags, or drive
+    /// it from custom build macros.
+    ///
+    /// Changes apply to the next `log(...)` call. `clearLogs()` and `export()`
+    /// always operate on the recorded history regardless of this value.
+    var isEnabled: Bool {
+        get { manager.isEnabled }
+        set { manager.isEnabled = newValue }
+    }
+
+    /// The minimum severity this logger records. An entry is recorded only
+    /// when its `level` is greater than or equal to this value; entries below
+    /// it are dropped before any work is done.
+    ///
+    /// Defaults to `.debug` (everything passes when `isEnabled` is on). Raise
+    /// it to silence noisy levels, e.g. `.warning` keeps only warnings,
+    /// errors and criticals.
+    var minLogLevel: LBLogLevel {
+        get { manager.minLogLevel }
+        set { manager.minLogLevel = newValue }
     }
 
     /// Records a log entry on this instance.

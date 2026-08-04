@@ -60,7 +60,7 @@ final class LBRedactionTests: XCTestCase {
 
     func testCustomSensitiveKeysReplaceDefaults() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-custom")
-        logBird.sensitiveKeys = ["session"]
+        logBird.sensitiveKeys(.set(["session"]))
 
         logBird.log("custom", additionalInfo: [
             "sessionId": .string("xyz"),
@@ -83,12 +83,12 @@ final class LBRedactionTests: XCTestCase {
 
         XCTAssertEqual(first.logs.first?.additionalInfo?["token"], .string("abc123"))
         XCTAssertEqual(second.logs.first?.additionalInfo?["token"], .string("<redacted>"))
-        XCTAssertEqual(second.sensitiveKeys, LogBird.defaultSensitiveKeys)
+        XCTAssertEqual(second.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys)
     }
 
     func testEmptySensitiveKeysRedactNothing() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-empty-keys")
-        logBird.sensitiveKeys = []
+        logBird.sensitiveKeys(.clear)
 
         logBird.log("raw", additionalInfo: ["token": .string("abc123")])
 
@@ -98,11 +98,65 @@ final class LBRedactionTests: XCTestCase {
 
     func testBlankSensitiveKeysAreIgnored() {
         let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-blank-keys")
-        logBird.sensitiveKeys = ["", "  "]
+        logBird.sensitiveKeys(.set(["", "  "]))
 
         logBird.log("raw", additionalInfo: ["token": .string("abc123")])
 
         XCTAssertEqual(logBird.logs.first?.additionalInfo?["token"], .string("abc123"))
+    }
+
+    func testSensitiveKeysActionSetAddDefaultClear() {
+        defer {
+            LogBird.setDefaultSensitiveKeys(Array(LBRedactor.initialDefaultSensitiveKeys))
+        }
+
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-actions")
+
+        // Initial default set matches initial needles
+        XCTAssertEqual(logBird.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys)
+
+        // .add preserves global defaults and adds custom keys
+        logBird.sensitiveKeys(.add(["anotherkey"]))
+        XCTAssertEqual(logBird.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys.union(["anotherkey"]))
+
+        // Changing global default dynamically updates logBird which added custom keys
+        LogBird.setDefaultSensitiveKeys(["password", "token", "newglobal"])
+        XCTAssertEqual(logBird.sensitiveKeys, ["password", "token", "newglobal", "anotherkey"])
+
+        // .set replaces completely for this instance
+        logBird.sensitiveKeys(.set(["customkey"]))
+        XCTAssertEqual(logBird.sensitiveKeys, ["customkey"])
+
+        // .clear empties this instance
+        logBird.sensitiveKeys(.clear)
+        XCTAssertTrue(logBird.sensitiveKeys.isEmpty)
+
+        // .reset restores pure global default set
+        logBird.sensitiveKeys(.reset)
+        XCTAssertEqual(logBird.sensitiveKeys, ["password", "token", "newglobal"])
+    }
+
+    func testStaticFacadeSensitiveKeysActions() {
+        defer {
+            LogBird.setDefaultSensitiveKeys(Array(LBRedactor.initialDefaultSensitiveKeys))
+            LogBird.sensitiveKeys(.reset)
+        }
+
+        LogBird.sensitiveKeys(.set(["facadekey"]))
+        XCTAssertEqual(LogBird.sensitiveKeys, ["facadekey"])
+
+        LogBird.sensitiveKeys(.add(["extrakey"]))
+        XCTAssertEqual(LogBird.sensitiveKeys, ["facadekey", "extrakey"])
+
+        LogBird.sensitiveKeys(.clear)
+        XCTAssertTrue(LogBird.sensitiveKeys.isEmpty)
+
+        LogBird.sensitiveKeys(.reset)
+        XCTAssertEqual(LogBird.sensitiveKeys, LBRedactor.initialDefaultSensitiveKeys)
+
+        LogBird.setDefaultSensitiveKeys(["globalappdefault"])
+        LogBird.sensitiveKeys(.reset)
+        XCTAssertEqual(LogBird.sensitiveKeys, ["globalappdefault"])
     }
 
     func testSensitiveKeyMatchingIgnoresSeparators() {
@@ -192,8 +246,46 @@ final class LBRedactionTests: XCTestCase {
         XCTAssertTrue(json.contains("<redacted>"))
     }
 
-    func testDefaultKeysIncludePasswordAndAuthorization() {
-        XCTAssertTrue(LogBird.defaultSensitiveKeys.contains("password"))
-        XCTAssertTrue(LogBird.defaultSensitiveKeys.contains("authorization"))
+    func testDefaultKeysIncludeAllCuratedNeedles() {
+        let expectedNeedles: Set<String> = [
+            "password", "token", "authorization", "auth", "secret",
+            "apikey", "cookie", "bearer", "credentials", "privatekey"
+        ]
+        XCTAssertEqual(LBRedactor.initialDefaultSensitiveKeys, expectedNeedles)
+    }
+
+    func testSensitiveKeysActionNormalizesInputKeys() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-norm-test")
+
+        logBird.sensitiveKeys(.set(["API_KEY", "X-Auth-Token"]))
+        XCTAssertEqual(logBird.sensitiveKeys, ["apikey", "xauthtoken"])
+
+        logBird.sensitiveKeys(.add(["User_SSN"]))
+        XCTAssertEqual(logBird.sensitiveKeys, ["apikey", "xauthtoken", "userssn"])
+    }
+
+    func testExpandedDefaultKeysMatchCommonVariants() {
+        let logBird = LogBird(subsystem: "com.logbird.tests", category: "redaction-variants")
+
+        logBird.log("login", additionalInfo: [
+            "access_token": .string("token1"),
+            "refresh_token": .string("token2"),
+            "set-cookie": .string("session=123"),
+            "x-api-key": .string("key123"),
+            "private_key": .string("pem-data"),
+            "user_credentials": .string("creds"),
+            "bearer": .string("token3"),
+            "auth_code": .string("code123")
+        ])
+
+        let info = logBird.logs.first?.additionalInfo
+        XCTAssertEqual(info?["access_token"], .string("<redacted>"))
+        XCTAssertEqual(info?["refresh_token"], .string("<redacted>"))
+        XCTAssertEqual(info?["set-cookie"], .string("<redacted>"))
+        XCTAssertEqual(info?["x-api-key"], .string("<redacted>"))
+        XCTAssertEqual(info?["private_key"], .string("<redacted>"))
+        XCTAssertEqual(info?["user_credentials"], .string("<redacted>"))
+        XCTAssertEqual(info?["bearer"], .string("<redacted>"))
+        XCTAssertEqual(info?["auth_code"], .string("<redacted>"))
     }
 }

@@ -131,7 +131,7 @@ LogBird maintains a comprehensive test suite under `Tests/`:
 If you are an AI Coding Agent (e.g., Antigravity, Claude, ChatGPT) working on LogBird:
 
 - Consult **[AGENTS.md](AGENTS.md)** for a complete technical sitemap and invariant checklist before making changes.
-- Consult the skill at **[.agents/skill/logbird/SKILL.md](.agents/skill/logbird/SKILL.md)** when integrating LogBird into client codebases.
+- Consult the skill at **[.agents/skills/logbird/SKILL.md](.agents/skills/logbird/SKILL.md)** when integrating LogBird into client codebases.
 - Do NOT remove existing SwiftDoc comments.
 - Do NOT introduce third-party SPM packages.
 - Always run `swift test` (using `BypassSandbox: true` if sandboxed) to verify correctness after code edits.
